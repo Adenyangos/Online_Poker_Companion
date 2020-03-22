@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="3.0" xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx">
+ <!-- EF Designer content (DO NOT EDIT MANUALLY BELOW HERE) -->
+  <edmx:Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
+    <!-- Diagram content (shape and connector positions) -->
+    <edmx:Diagrams>
+      <Diagram DiagramId="73d101fc092d446591f85161865b8a2e" Name="Diagram1">
+        <EntityTypeShape EntityType="BOL_RnD_DBModel.BoardAction" Width="1.5" PointX="5.25" PointY="3.5" IsExpanded="true" />
+        <EntityTypeShape EntityType="BOL_RnD_DBModel.Game" Width="1.5" PointX="0.75" PointY="3.375" IsExpanded="true" />
+        <EntityTypeShape EntityType="BOL_RnD_DBModel.Hand" Width="1.5" PointX="3" PointY="3.375" IsExpanded="true" />
+        <EntityTypeShape EntityType="BOL_RnD_DBModel.HandPlayer" Width="1.5" PointX="8.25" PointY="3.125" IsExpanded="true" />
+        <EntityTypeShape EntityType="BOL_RnD_DBModel.Player" Width="1.5" PointX="5.5" PointY="5.875" IsExpanded="true" />
+        <EntityTypeShape EntityType="BOL_RnD_DBModel.PlayerAction" Width="1.5" PointX="10.5" PointY="3.5" IsExpanded="true" />
+        <AssociationConnector Association="BOL_RnD_DBModel.FK_BoardAction_To_Hand" ManuallyRouted="false" />
+        <AssociationConnector Association="BOL_RnD_DBModel.FK_Hand_To_Game" ManuallyRouted="false" />
+        <AssociationConnector Association="BOL_RnD_DBModel.FK_HandPlayer_To_Hand" ManuallyRouted="false" />
+        <AssociationConnector Association="BOL_RnD_DBModel.FK_HandPlayer_To_Player" ManuallyRouted="false" />
+        <AssociationConnector Association="BOL_RnD_DBModel.FK_PlayerAction_To_HandPlayer" ManuallyRouted="false" />
+      </Diagram>
+    </edmx:Diagrams>
+  </edmx:Designer>
+</edmx:Edmx>

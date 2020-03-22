@@ -1,0 +1,405 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="3.0" xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx">
+  <!-- EF Runtime content -->
+  <edmx:Runtime>
+    <!-- SSDL content -->
+    <edmx:StorageModels>
+      <Schema Namespace="BOL_RnD_DBModel.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2012" Alias="Self" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl">
+        <EntityType Name="BoardAction">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="bigint" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="HandId" Type="bigint" Nullable="false" />
+          <Property Name="BoardCard" Type="smallint" Nullable="false" />
+          <Property Name="HandActionNumber" Type="int" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Game">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="Tournament" Type="bit" Nullable="false" />
+          <Property Name="NumPlayers" Type="int" />
+          <Property Name="DateTimeStart" Type="datetime2" Precision="7" Nullable="false" />
+          <Property Name="BuyIn" Type="smallmoney" />
+          <Property Name="ReBuys" Type="int" />
+        </EntityType>
+        <EntityType Name="Hand">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="bigint" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="GameId" Type="int" Nullable="false" />
+          <Property Name="Ante" Type="int" Nullable="false" />
+          <Property Name="DateTimeStart" Type="datetime2" Precision="7" Nullable="false" />
+        </EntityType>
+        <EntityType Name="HandPlayer">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="bigint" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="HandId" Type="bigint" Nullable="false" />
+          <Property Name="PlayerId" Type="int" Nullable="false" />
+          <Property Name="ChipCountStart" Type="int" Nullable="false" />
+          <Property Name="Blind" Type="int" Nullable="false" />
+          <Property Name="HoldCard1" Type="smallint" Nullable="false" />
+          <Property Name="HoldCard2" Type="smallint" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Player">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="Name" Type="nvarchar" MaxLength="50" Nullable="false" />
+        </EntityType>
+        <EntityType Name="PlayerAction">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="bigint" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="HandPlayerId" Type="bigint" Nullable="false" />
+          <Property Name="ChipCountChange" Type="int" Nullable="false" />
+          <Property Name="HandActionNumber" Type="int" Nullable="false" />
+        </EntityType>
+        <Association Name="FK_BoardAction_To_Hand">
+          <End Role="Hand" Type="Self.Hand" Multiplicity="1" />
+          <End Role="BoardAction" Type="Self.BoardAction" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Hand">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="BoardAction">
+              <PropertyRef Name="HandId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Hand_To_Game">
+          <End Role="Game" Type="Self.Game" Multiplicity="1" />
+          <End Role="Hand" Type="Self.Hand" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Game">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Hand">
+              <PropertyRef Name="GameId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_HandPlayer_To_Hand">
+          <End Role="Hand" Type="Self.Hand" Multiplicity="1" />
+          <End Role="HandPlayer" Type="Self.HandPlayer" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Hand">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="HandPlayer">
+              <PropertyRef Name="HandId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_HandPlayer_To_Player">
+          <End Role="Player" Type="Self.Player" Multiplicity="1" />
+          <End Role="HandPlayer" Type="Self.HandPlayer" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Player">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="HandPlayer">
+              <PropertyRef Name="PlayerId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_PlayerAction_To_HandPlayer">
+          <End Role="HandPlayer" Type="Self.HandPlayer" Multiplicity="1" />
+          <End Role="PlayerAction" Type="Self.PlayerAction" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="HandPlayer">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="PlayerAction">
+              <PropertyRef Name="HandPlayerId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityContainer Name="BOL_RnD_DBModelStoreContainer">
+          <EntitySet Name="BoardAction" EntityType="Self.BoardAction" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Game" EntityType="Self.Game" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Hand" EntityType="Self.Hand" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="HandPlayer" EntityType="Self.HandPlayer" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Player" EntityType="Self.Player" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="PlayerAction" EntityType="Self.PlayerAction" Schema="dbo" store:Type="Tables" />
+          <AssociationSet Name="FK_BoardAction_To_Hand" Association="Self.FK_BoardAction_To_Hand">
+            <End Role="Hand" EntitySet="Hand" />
+            <End Role="BoardAction" EntitySet="BoardAction" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Hand_To_Game" Association="Self.FK_Hand_To_Game">
+            <End Role="Game" EntitySet="Game" />
+            <End Role="Hand" EntitySet="Hand" />
+          </AssociationSet>
+          <AssociationSet Name="FK_HandPlayer_To_Hand" Association="Self.FK_HandPlayer_To_Hand">
+            <End Role="Hand" EntitySet="Hand" />
+            <End Role="HandPlayer" EntitySet="HandPlayer" />
+          </AssociationSet>
+          <AssociationSet Name="FK_HandPlayer_To_Player" Association="Self.FK_HandPlayer_To_Player">
+            <End Role="Player" EntitySet="Player" />
+            <End Role="HandPlayer" EntitySet="HandPlayer" />
+          </AssociationSet>
+          <AssociationSet Name="FK_PlayerAction_To_HandPlayer" Association="Self.FK_PlayerAction_To_HandPlayer">
+            <End Role="HandPlayer" EntitySet="HandPlayer" />
+            <End Role="PlayerAction" EntitySet="PlayerAction" />
+          </AssociationSet>
+        </EntityContainer>
+      </Schema>
+    </edmx:StorageModels>
+    <!-- CSDL content -->
+    <edmx:ConceptualModels>
+      <Schema Namespace="BOL_RnD_DBModel" Alias="Self" annotation:UseStrongSpatialTypes="false" xmlns:annotation="http://schemas.microsoft.com/ado/2009/02/edm/annotation" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm">
+        <EntityType Name="BoardAction">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int64" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="HandId" Type="Int64" Nullable="false" />
+          <Property Name="BoardCard" Type="Int16" Nullable="false" />
+          <Property Name="HandActionNumber" Type="Int32" Nullable="false" />
+          <NavigationProperty Name="Hand" Relationship="Self.FK_BoardAction_To_Hand" FromRole="BoardAction" ToRole="Hand" />
+        </EntityType>
+        <EntityType Name="Game">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Tournament" Type="Boolean" Nullable="false" />
+          <Property Name="NumPlayers" Type="Int32" />
+          <Property Name="DateTimeStart" Type="DateTime" Nullable="false" Precision="7" />
+          <Property Name="BuyIn" Type="Decimal" Precision="10" Scale="4" />
+          <Property Name="ReBuys" Type="Int32" />
+          <NavigationProperty Name="Hands" Relationship="Self.FK_Hand_To_Game" FromRole="Game" ToRole="Hand" />
+        </EntityType>
+        <EntityType Name="Hand">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int64" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="GameId" Type="Int32" Nullable="false" />
+          <Property Name="Ante" Type="Int32" Nullable="false" />
+          <Property Name="DateTimeStart" Type="DateTime" Nullable="false" Precision="7" />
+          <NavigationProperty Name="BoardActions" Relationship="Self.FK_BoardAction_To_Hand" FromRole="Hand" ToRole="BoardAction" />
+          <NavigationProperty Name="Game" Relationship="Self.FK_Hand_To_Game" FromRole="Hand" ToRole="Game" />
+          <NavigationProperty Name="HandPlayers" Relationship="Self.FK_HandPlayer_To_Hand" FromRole="Hand" ToRole="HandPlayer" />
+        </EntityType>
+        <EntityType Name="HandPlayer">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int64" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="HandId" Type="Int64" Nullable="false" />
+          <Property Name="PlayerId" Type="Int32" Nullable="false" />
+          <Property Name="ChipCountStart" Type="Int32" Nullable="false" />
+          <Property Name="Blind" Type="Int32" Nullable="false" />
+          <Property Name="HoldCard1" Type="Int16" Nullable="false" />
+          <Property Name="HoldCard2" Type="Int16" Nullable="false" />
+          <NavigationProperty Name="Hand" Relationship="Self.FK_HandPlayer_To_Hand" FromRole="HandPlayer" ToRole="Hand" />
+          <NavigationProperty Name="Player" Relationship="Self.FK_HandPlayer_To_Player" FromRole="HandPlayer" ToRole="Player" />
+          <NavigationProperty Name="PlayerActions" Relationship="Self.FK_PlayerAction_To_HandPlayer" FromRole="HandPlayer" ToRole="PlayerAction" />
+        </EntityType>
+        <EntityType Name="Player">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Name" Type="String" MaxLength="50" FixedLength="false" Unicode="true" Nullable="false" />
+          <NavigationProperty Name="HandPlayers" Relationship="Self.FK_HandPlayer_To_Player" FromRole="Player" ToRole="HandPlayer" />
+        </EntityType>
+        <EntityType Name="PlayerAction">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int64" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="HandPlayerId" Type="Int64" Nullable="false" />
+          <Property Name="ChipCountChange" Type="Int32" Nullable="false" />
+          <Property Name="HandActionNumber" Type="Int32" Nullable="false" />
+          <NavigationProperty Name="HandPlayer" Relationship="Self.FK_PlayerAction_To_HandPlayer" FromRole="PlayerAction" ToRole="HandPlayer" />
+        </EntityType>
+        <Association Name="FK_BoardAction_To_Hand">
+          <End Role="Hand" Type="Self.Hand" Multiplicity="1" />
+          <End Role="BoardAction" Type="Self.BoardAction" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Hand">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="BoardAction">
+              <PropertyRef Name="HandId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Hand_To_Game">
+          <End Role="Game" Type="Self.Game" Multiplicity="1" />
+          <End Role="Hand" Type="Self.Hand" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Game">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Hand">
+              <PropertyRef Name="GameId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_HandPlayer_To_Hand">
+          <End Role="Hand" Type="Self.Hand" Multiplicity="1" />
+          <End Role="HandPlayer" Type="Self.HandPlayer" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Hand">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="HandPlayer">
+              <PropertyRef Name="HandId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_HandPlayer_To_Player">
+          <End Role="Player" Type="Self.Player" Multiplicity="1" />
+          <End Role="HandPlayer" Type="Self.HandPlayer" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Player">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="HandPlayer">
+              <PropertyRef Name="PlayerId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_PlayerAction_To_HandPlayer">
+          <End Role="HandPlayer" Type="Self.HandPlayer" Multiplicity="1" />
+          <End Role="PlayerAction" Type="Self.PlayerAction" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="HandPlayer">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="PlayerAction">
+              <PropertyRef Name="HandPlayerId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityContainer Name="Bol_Model_DBEntities" annotation:LazyLoadingEnabled="true">
+          <EntitySet Name="BoardActions" EntityType="Self.BoardAction" />
+          <EntitySet Name="Games" EntityType="Self.Game" />
+          <EntitySet Name="Hands" EntityType="Self.Hand" />
+          <EntitySet Name="HandPlayers" EntityType="Self.HandPlayer" />
+          <EntitySet Name="Players" EntityType="Self.Player" />
+          <EntitySet Name="PlayerActions" EntityType="Self.PlayerAction" />
+          <AssociationSet Name="FK_BoardAction_To_Hand" Association="Self.FK_BoardAction_To_Hand">
+            <End Role="Hand" EntitySet="Hands" />
+            <End Role="BoardAction" EntitySet="BoardActions" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Hand_To_Game" Association="Self.FK_Hand_To_Game">
+            <End Role="Game" EntitySet="Games" />
+            <End Role="Hand" EntitySet="Hands" />
+          </AssociationSet>
+          <AssociationSet Name="FK_HandPlayer_To_Hand" Association="Self.FK_HandPlayer_To_Hand">
+            <End Role="Hand" EntitySet="Hands" />
+            <End Role="HandPlayer" EntitySet="HandPlayers" />
+          </AssociationSet>
+          <AssociationSet Name="FK_HandPlayer_To_Player" Association="Self.FK_HandPlayer_To_Player">
+            <End Role="Player" EntitySet="Players" />
+            <End Role="HandPlayer" EntitySet="HandPlayers" />
+          </AssociationSet>
+          <AssociationSet Name="FK_PlayerAction_To_HandPlayer" Association="Self.FK_PlayerAction_To_HandPlayer">
+            <End Role="HandPlayer" EntitySet="HandPlayers" />
+            <End Role="PlayerAction" EntitySet="PlayerActions" />
+          </AssociationSet>
+        </EntityContainer>
+      </Schema>
+    </edmx:ConceptualModels>
+    <!-- C-S mapping content -->
+    <edmx:Mappings>
+      <Mapping Space="C-S" xmlns="http://schemas.microsoft.com/ado/2009/11/mapping/cs">
+        <EntityContainerMapping StorageEntityContainer="BOL_RnD_DBModelStoreContainer" CdmEntityContainer="Bol_Model_DBEntities">
+          <EntitySetMapping Name="BoardActions">
+            <EntityTypeMapping TypeName="BOL_RnD_DBModel.BoardAction">
+              <MappingFragment StoreEntitySet="BoardAction">
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="HandId" ColumnName="HandId" />
+                <ScalarProperty Name="BoardCard" ColumnName="BoardCard" />
+                <ScalarProperty Name="HandActionNumber" ColumnName="HandActionNumber" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Games">
+            <EntityTypeMapping TypeName="BOL_RnD_DBModel.Game">
+              <MappingFragment StoreEntitySet="Game">
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="Tournament" ColumnName="Tournament" />
+                <ScalarProperty Name="NumPlayers" ColumnName="NumPlayers" />
+                <ScalarProperty Name="DateTimeStart" ColumnName="DateTimeStart" />
+                <ScalarProperty Name="BuyIn" ColumnName="BuyIn" />
+                <ScalarProperty Name="ReBuys" ColumnName="ReBuys" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Hands">
+            <EntityTypeMapping TypeName="BOL_RnD_DBModel.Hand">
+              <MappingFragment StoreEntitySet="Hand">
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="GameId" ColumnName="GameId" />
+                <ScalarProperty Name="Ante" ColumnName="Ante" />
+                <ScalarProperty Name="DateTimeStart" ColumnName="DateTimeStart" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="HandPlayers">
+            <EntityTypeMapping TypeName="BOL_RnD_DBModel.HandPlayer">
+              <MappingFragment StoreEntitySet="HandPlayer">
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="HandId" ColumnName="HandId" />
+                <ScalarProperty Name="PlayerId" ColumnName="PlayerId" />
+                <ScalarProperty Name="ChipCountStart" ColumnName="ChipCountStart" />
+                <ScalarProperty Name="Blind" ColumnName="Blind" />
+                <ScalarProperty Name="HoldCard1" ColumnName="HoldCard1" />
+                <ScalarProperty Name="HoldCard2" ColumnName="HoldCard2" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Players">
+            <EntityTypeMapping TypeName="BOL_RnD_DBModel.Player">
+              <MappingFragment StoreEntitySet="Player">
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="PlayerActions">
+            <EntityTypeMapping TypeName="BOL_RnD_DBModel.PlayerAction">
+              <MappingFragment StoreEntitySet="PlayerAction">
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="HandPlayerId" ColumnName="HandPlayerId" />
+                <ScalarProperty Name="ChipCountChange" ColumnName="ChipCountChange" />
+                <ScalarProperty Name="HandActionNumber" ColumnName="HandActionNumber" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+        </EntityContainerMapping>
+      </Mapping>
+    </edmx:Mappings>
+  </edmx:Runtime>
+  <!-- EF Designer content (DO NOT EDIT MANUALLY BELOW HERE) -->
+  <Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
+    <Connection>
+      <DesignerInfoPropertySet>
+        <DesignerProperty Name="MetadataArtifactProcessing" Value="EmbedInOutputAssembly" />
+      </DesignerInfoPropertySet>
+    </Connection>
+    <Options>
+      <DesignerInfoPropertySet>
+        <DesignerProperty Name="ValidateOnBuild" Value="true" />
+        <DesignerProperty Name="EnablePluralization" Value="true" />
+        <DesignerProperty Name="IncludeForeignKeysInModel" Value="true" />
+        <DesignerProperty Name="UseLegacyProvider" Value="false" />
+        <DesignerProperty Name="CodeGenerationStrategy" Value="None" />
+      </DesignerInfoPropertySet>
+    </Options>
+    <!-- Diagram content (shape and connector positions) -->
+    <Diagrams></Diagrams>
+  </Designer>
+</edmx:Edmx>
