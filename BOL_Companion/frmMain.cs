@@ -22,16 +22,16 @@ namespace BOL_Companion
         bool blnNewPot, blnNewDealer, blnNewDealerPrev, blnNewActionPlayer, blnNextSsEnabled;
         bool blnPotChangePrevious, blnDealerChangePrevious, blnActionPlayerChangePrevious, blnBoardChangePrevious;
         bool blnReRunTasks, bln9PlayerTable, blnShowdown, blnFirstScreenShot, blnDontUpdateData, blnDealerChipNotFound;
-        bool blnPokerCompanionRunning;
-        int intCurrentSsFile, intJobCompletionCounter, intJobStartedCounter, intBbPlayer, intSbPlayer;
+        bool blnPokerCompanionRunning, blnAllInChipStacksCorrected;
+        int intCurrentSsFile, intJobCompletionCounter, intJobStartedCounter, intBbPlayer, intSbPlayer, intCorrectedAllInBet;
         int intDbGameId, intDbHandActionNum, intScreenWidth, intScreenHeight, intScreenLocX, intScreenLocY;
         long lngDbHandId;
         const int intTaskCount = 17;
         int[] intPot, intDealer, intActionPlayer;
-        string strFilePath;
+        string strScreenshotFilePath, strBitmapSavePath, strPlayerOfInterest;
         public string strMouseLabelX, strMouseLabelY, strMouseLabelClr, strMouseLabelBright;
         string[] strSsFiles;
-        public Color clrNormalText, clrDataChange, clrDataId, clrRtbBackground;
+        public Color clrNormalText, clrDataChange, clrDataId, clrRtbBackground, clrControlDisabled;
         Pen penWhite, penBlack, penRed, penGreen, penBlue, PenPurple;
         Bitmap bmpScreenShot, bmpMyHand;
         Graphics gfxScreenShot;
@@ -49,11 +49,13 @@ namespace BOL_Companion
 
         #region Control Definitions
 
-        public Label lblRectX, lblRectY, lblRectWidth, lblRectHeight, lblMouseClickX, lblMouseClickY, lblMouseClickClr, lblMouseClickBright;
+        public ToolTip tipFrmMain;
+        public GroupBox grpBasicSettings, grpProgramControl, grpBitmapLocationTools, grpErrorLogging;
+        public Label lblPlayerOfInterest, lblRectX, lblRectY, lblRectWidth, lblRectHeight, lblMouseClickX, lblMouseClickY, lblMouseClickClr, lblMouseClickBright;
         public CheckBox chkClearRects, chkSaveBitmaps, chkAutoNextScreenShot, chkShowClickData;
-        public RadioButton rdo9PlayerTable, rdo10PlayerTable;
-        public TextBox txtRectX, txtRectY, txtRectWidth, txtRectHeight, txtErrorMessages;
-        public Button btnStartPokerCompanion, btnOpenScreenShotFile, btnNextScreenShot, btnCopyBitmapsForWorkers, btnDrawRect, btnDrawAllRects;
+        public RadioButton rdoModeLiveGame, rdoModeScreenshotMode, rdo9PlayerTable, rdo10PlayerTable;
+        public TextBox txtPlayerOfInterest, txtRectX, txtRectY, txtRectWidth, txtRectHeight, txtErrorMessages;
+        public Button btnChangeBitmapSaveLocation, btnStartPokerCompanion, btnOpenScreenShotFile, btnNextScreenShot, btnCopyBitmapsForWorkers, btnDrawRect, btnDrawAllRects, btnClearAllDbData;
         public RichTextBox rtbPotDealerAction, rtbStatus, rtbBoard, rtbUiIdleTime, rtbTotalProcessTime, rtbNewHandDetected;
         public DataGridView dgvPlayers, dgvTimers;
         public PictureBox picScreenShot, picMyHand;
@@ -67,7 +69,7 @@ namespace BOL_Companion
         {
             InitializeComponent();
         }
-        
+
 
         private void frmMain_Load(object sender, EventArgs e)
         {
@@ -78,8 +80,8 @@ namespace BOL_Companion
             InitializeScreenShotHandlers();
             InitializeStopWatches();
             InitializeTasks();
-            CreateNewGameInDb();
             CreateFrmDataDisplay();
+            DetectScreenCount();
         }
 
         private void InitializeThisForm()
@@ -107,6 +109,7 @@ namespace BOL_Companion
             blnFirstScreenShot = true;
             blnDontUpdateData = false;
             blnDealerChipNotFound = false;
+            blnAllInChipStacksCorrected = false;
             intJobCompletionCounter = 1;
             intJobStartedCounter = 1;
             intBbPlayer = -1;
@@ -114,11 +117,14 @@ namespace BOL_Companion
             intDbGameId = -1;
             lngDbHandId = -1;
             intDbHandActionNum = -1;
+            intCorrectedAllInBet = 0;
             intScreenWidth = Screen.AllScreens[0].WorkingArea.Width;
             intScreenHeight = Screen.AllScreens[0].WorkingArea.Height;
             intScreenLocX = Screen.AllScreens[0].WorkingArea.Location.X;
-            intScreenLocY = Screen.AllScreens[0].WorkingArea.Location.Y;
-            strFilePath = "";
+            intScreenLocY = Screen.AllScreens[0].WorkingArea.Location.Y + SystemInformation.CaptionHeight;
+            strScreenshotFilePath = "";
+            strBitmapSavePath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+            strPlayerOfInterest = "JabaAdam";
             strMouseLabelX = "Mouse Click X Coordinate: ";
             strMouseLabelY = "Mouse Click Y Coordinate: ";
             strMouseLabelClr = "Mouse Click Color: ";
@@ -132,6 +138,7 @@ namespace BOL_Companion
             clrDataChange = Color.Blue;
             clrDataId = Color.SpringGreen;
             clrRtbBackground = Color.DimGray;
+            clrControlDisabled = Color.FromArgb(85, 85, 85);
 
             penWhite = new Pen(Color.White, 1);
             penBlack = new Pen(Color.Black, 1);
@@ -141,6 +148,14 @@ namespace BOL_Companion
             PenPurple = new Pen(Color.Purple, 1);
 
             Db_ = new DbController(this);
+        }
+
+        private void DetectScreenCount()
+        {
+            if (Screen.AllScreens.Count() < 2)
+            {
+                MessageBox.Show("Warning! Only one monitor has been detected. This application was designed to be run with at least two monitors. This application will contiue to run but be aware that some information may not be displayed properly or hidden on windows that are not visible.", "Single monitor detected", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         async private void InitializeTasks()
@@ -183,7 +198,7 @@ namespace BOL_Companion
 
             for (int i = 0; i < intTaskCount; i++)
             {
-                pssWorkers[i] = new ProcessScreenShots(i, true);
+                pssWorkers[i] = new ProcessScreenShots(i, strBitmapSavePath);
             }
         }
 
@@ -214,6 +229,7 @@ namespace BOL_Companion
         {
             // Pass clrRtbBackground to the frmDataDisplay form to use it as the background color
             frmDataDisplay = new frmDataDisplay(clrRtbBackground);
+            frmDataDisplay.PlayerOfInterest(strPlayerOfInterest, -1);
             frmDataDisplay.Show();
             frmDataDisplay.ZeroData();
         }
@@ -222,7 +238,11 @@ namespace BOL_Companion
 
         #region Control Events
 
-        // This is the main event that does everyting important
+        /// <summary>
+        /// This is the main event that does everyting important
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         public void btnOpenScreenShotFile_Click(object sender, EventArgs e)
         {
             btnStartPokerCompanion.Enabled = false;
@@ -245,16 +265,20 @@ namespace BOL_Companion
                     stpOverallTime.Start();
                 }
 
+                // Disable the clear all database data button to prevent clearing the database in the middle of a hand as this would cause problems with the 
+                // data.
+                btnClearAllDbData.Enabled = false;
+
                 try
                 {
-                    if ((strFilePath = ofdOpenFileDialog.FileName) != null)
+                    if ((strScreenshotFilePath = ofdOpenFileDialog.FileName) != null)
                     {
                         // get all the .bmp files in the selected directory
-                        string strDirectoryPath = Path.GetDirectoryName(strFilePath);
+                        string strDirectoryPath = Path.GetDirectoryName(strScreenshotFilePath);
                         strSsFiles = Directory.GetFiles(strDirectoryPath, "*.bmp", SearchOption.TopDirectoryOnly);
 
                         // find the index of the selected .bmp file
-                        intCurrentSsFile = Array.IndexOf(strSsFiles, strFilePath);
+                        intCurrentSsFile = Array.IndexOf(strSsFiles, strScreenshotFilePath);
 
                         if (blnDisposeScreenShotResources)
                         {
@@ -270,19 +294,21 @@ namespace BOL_Companion
                             lblMouseClickBright.Text = strMouseLabelBright;
                         }
 
-                        bmpScreenShot = (Bitmap)Bitmap.FromFile(strFilePath);
+                        bmpScreenShot = (Bitmap)Bitmap.FromFile(strScreenshotFilePath);
                         gfxScreenShot = Graphics.FromImage(bmpScreenShot);
 
                         picScreenShot.Image = bmpScreenShot;
                         blnDisposeScreenShotResources = true;
 
+                        // Must create a new game in the Db here for the subsequent processes to refer to
+                        CreateNewGameInDb();
                         UpdateAllData();
                     }
                     blnNextSsEnabled = true;
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show("Error: Could not read file from disk.Original error: " + ex.Message);
+                    MessageBox.Show("Error: Could not read file from disk. Original error: " + ex.Message);
                 }
             }
             else if (blnNextSsEnabled)
@@ -295,19 +321,22 @@ namespace BOL_Companion
             }
             else
             {
-                btnStartPokerCompanion.Enabled = true;
                 btnOpenScreenShotFile.Enabled = true;
                 btnOpenScreenShotFile.Focus();
             }
         }
 
         /// <summary>
-        /// Click Event for btnStartPokerCompanion. This method starts taking screenshot of the poker game, saves and processes the data and produces graphs.
+        /// Click Event for btnStartPokerCompanion. This method starts taking screenshots of the poker game, saves and processes the data and produces graphs.
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
         public void btnStartPokerCompanion_Click(object sender, EventArgs e)
         {
+            // Disable the clear all database data button to prevent clearing the database in the middle of a hand as this would cause problems with the 
+            // data.
+            btnClearAllDbData.Enabled = false;
+
             // sender == null when this method is called from UpdateAllData to repeat the process. sender != null if the button is actually clicked by the user
             if (sender != null && blnPokerCompanionRunning)
             {
@@ -328,6 +357,9 @@ namespace BOL_Companion
                     btnNextScreenShot.Enabled = false;
 
                     btnStartPokerCompanion.Text = "Stop Poker Companion";
+
+                    // Must create a new game in the Db here for the subsequent processes to refer to
+                    CreateNewGameInDb();
                 }
 
                 if (blnPokerCompanionRunning)
@@ -338,7 +370,7 @@ namespace BOL_Companion
                         gfxScreenShot.Dispose();
                     }
 
-                    bmpScreenShot = new Bitmap(intScreenWidth, intScreenHeight);
+                    bmpScreenShot = new Bitmap(intScreenWidth, intScreenHeight - SystemInformation.CaptionHeight);
 
                     gfxScreenShot = Graphics.FromImage(bmpScreenShot as Image);
                     gfxScreenShot.CopyFromScreen(intScreenLocX, intScreenLocY, 0, 0, bmpScreenShot.Size);
@@ -393,7 +425,7 @@ namespace BOL_Companion
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error: Could not read file from disk.Original error: " + ex.Message);
+                MessageBox.Show("Error: Could not read file from disk. Original error: " + ex.Message);
             }
         }
 
@@ -409,18 +441,52 @@ namespace BOL_Companion
             }
         }
 
+        /// <summary>
+        /// Change the location where the Bitmap files that are used to read the state of the game are saved.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        public void btnChangeBitmapSaveLocation_Click(object sender, EventArgs e)
+        {
+            FolderBrowserDialog fbdOpenDirectoryDialog = new FolderBrowserDialog();
+
+            fbdOpenDirectoryDialog.SelectedPath = strBitmapSavePath;
+            fbdOpenDirectoryDialog.ShowNewFolderButton = true;
+            fbdOpenDirectoryDialog.Description = "Select Location to Save Bitmap Files";
+
+            if (fbdOpenDirectoryDialog.ShowDialog() == DialogResult.OK)
+            {
+                strBitmapSavePath = fbdOpenDirectoryDialog.SelectedPath;
+
+                for (int i = 0; i < intTaskCount; i++)
+                {
+                    pssWorkers[i].ChangeBitmapSaveLocation(strBitmapSavePath);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Clear all data in all the tables of the database and restart the Id numbering at 1.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        public void btnClearAllDbData_Click(object sender, EventArgs e)
+        {
+            Db_.ClearAllDbData();
+        }
+
         public void btnDrawRect_Click(object sender, EventArgs e)
         {
             int intX, intY, intWidth, intHeight;
 
             if (int.TryParse(txtRectX.Text, out intX) && int.TryParse(txtRectY.Text, out intY) &&
-                int.TryParse(txtRectWidth.Text, out intWidth) && int.TryParse(txtRectHeight.Text, out intHeight) && strFilePath != "")
+                int.TryParse(txtRectWidth.Text, out intWidth) && int.TryParse(txtRectHeight.Text, out intHeight) && strScreenshotFilePath != "")
             {
                 DrawRect(penWhite, intX, intY, intWidth, intHeight, chkClearRects.Checked);
             }
         }
 
-        public void btnDrawAllRects_Click (object sender, EventArgs e)
+        public void btnDrawAllRects_Click(object sender, EventArgs e)
         {
             Rectangle rctToDraw;
             for (int i = 0; i < intTaskCount; i++)
@@ -449,8 +515,110 @@ namespace BOL_Companion
                         // Player's dealer chip
                         rctToDraw = pssWorkers[i].BitmapRect(i, 3);
                         DrawRect(penRed, rctToDraw.Width, rctToDraw.Height, 0, 0, false);
+
+                        // Player avitar present check
+                        rctToDraw = pssWorkers[i].AvitarPresentCheckRect(i);
+                        DrawRect(penGreen, rctToDraw.X, rctToDraw.Y, rctToDraw.Width, rctToDraw.Height, false);
+
+                        // Player first hold card face down check location
+                        rctToDraw = pssWorkers[i].Hc1FaceDownCheckRect(i);
+                        DrawRect(penRed, rctToDraw.X, rctToDraw.Y, rctToDraw.Width, rctToDraw.Height, false);
+
+                        // Player first hold card face up check location 1
+                        rctToDraw = pssWorkers[i].Hc1FaceUpCheckRect_1(i);
+                        DrawRect(penRed, rctToDraw.X, rctToDraw.Y, rctToDraw.Width, rctToDraw.Height, false);
+
+                        // Player first hold card face up check location 2
+                        rctToDraw = pssWorkers[i].Hc1FaceUpCheckRect_2(i);
+                        DrawRect(penRed, rctToDraw.X, rctToDraw.Y, rctToDraw.Width, rctToDraw.Height, false);
+
+                        // Player second hold card face down check location
+                        rctToDraw = pssWorkers[i].Hc2FaceDownCheckRect(i);
+                        DrawRect(penGreen, rctToDraw.X, rctToDraw.Y, rctToDraw.Width, rctToDraw.Height, false);
+
+                        // Player second hold card face up check location 1
+                        rctToDraw = pssWorkers[i].Hc2FaceUpCheckRect_1(i);
+                        DrawRect(penBlue, rctToDraw.X, rctToDraw.Y, rctToDraw.Width, rctToDraw.Height, false);
+
+                        // Player second hold card face up check location 2
+                        rctToDraw = pssWorkers[i].Hc2FaceUpCheckRect_2(i);
+                        DrawRect(penBlue, rctToDraw.X, rctToDraw.Y, rctToDraw.Width, rctToDraw.Height, false);
+
+                        // Open seat check
+                        rctToDraw = pssWorkers[i].OpenSeatCheckRect(i);
+                        DrawRect(penRed, rctToDraw.X, rctToDraw.Y, rctToDraw.Width, rctToDraw.Height, false);
+
+                        // Banner present check
+                        rctToDraw = pssWorkers[i].BannerPresentCheckRect(i);
+                        DrawRect(penRed, rctToDraw.X, rctToDraw.Y, rctToDraw.Width, rctToDraw.Height, false);
+
+                        // Hold card 1 suit check location
+                        rctToDraw = pssWorkers[i].Hc1SuitCheckRect(i);
+                        DrawRect(penGreen, rctToDraw.X, rctToDraw.Y, rctToDraw.Width, rctToDraw.Height, false);
+
+                        // Hold card 2 suit check location
+                        rctToDraw = pssWorkers[i].Hc2SuitCheckRect(i);
+                        DrawRect(penGreen, rctToDraw.X, rctToDraw.Y, rctToDraw.Width, rctToDraw.Height, false);
+                    }
+
+                    // Board cards
+                    if (i > 9 && i < 15)
+                    {
+                        // Board card suit check location
+                        rctToDraw = pssWorkers[i].BoardCardSuitCheckRect(i);
+                        DrawRect(penGreen, rctToDraw.X, rctToDraw.Y, rctToDraw.Width, rctToDraw.Height, false);
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Generic event handler for Button_EnabledChanged event
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        public void btn_EnabledChanged(object sender, EventArgs e)
+        {
+            Button btn = sender as Button;
+
+            if (btn.Enabled)
+            {
+                btn.BackColor = clrRtbBackground;
+            }
+            else
+            {
+                btn.BackColor = clrControlDisabled;
+            }
+        }
+
+        public void chkSaveBitmaps_CheckChanged(object sender, EventArgs e)
+        {
+            if (chkSaveBitmaps.Checked)
+            {
+                btnChangeBitmapSaveLocation.Enabled = true;
+            }
+            else
+            {
+                btnChangeBitmapSaveLocation.Enabled = false;
+            }
+        }
+
+        /// <summary>
+        /// Generic event handler for CheckBox_EnabledChanged event
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        public void chk_EnabledChanged(object sender, EventArgs e)
+        {
+            CheckBox chk = sender as CheckBox;
+
+            if (chk.Enabled)
+            {
+                chk.BackColor = clrRtbBackground;
+            }
+            else
+            {
+                chk.BackColor = clrControlDisabled;
             }
         }
 
@@ -472,6 +640,26 @@ namespace BOL_Companion
             }
         }
 
+        public void rdoModeScreenshotMode_CheckChanged(object sender, EventArgs e)
+        {
+            if (rdoModeScreenshotMode.Checked)
+            {
+                btnStartPokerCompanion.Enabled = false;
+                btnOpenScreenShotFile.Enabled = true;
+                grpBitmapLocationTools.Enabled = true;
+            }
+        }
+
+        public void rdoModeLiveGame_CheckChanged(object sender, EventArgs e)
+        {
+            if (rdoModeLiveGame.Checked)
+            {
+                btnStartPokerCompanion.Enabled = true;
+                btnOpenScreenShotFile.Enabled = false;
+                grpBitmapLocationTools.Enabled = false;
+            }
+        }
+
         public async void rdo9PlayerTable_CheckChanged(object sender, EventArgs e)
         {
             if (rdo9PlayerTable.Checked)
@@ -480,7 +668,7 @@ namespace BOL_Companion
                 CreateTasks(true);
 
                 for (int i = 0; i < intTaskCount; i++)
-                {  
+                {
                     pssWorkers[i].PlayerCount9();
                 }
 
@@ -506,6 +694,47 @@ namespace BOL_Companion
             }
         }
 
+        public void txtPlayerOfInterest_TextChanged(object sender, EventArgs e)
+        {
+            long lngPlayerOfInterestDbHandPlayerId;
+
+            lngPlayerOfInterestDbHandPlayerId = -1;
+            strPlayerOfInterest = txtPlayerOfInterest.Text.Trim();
+
+            for (int i = 0; i < 10; i++)
+            {
+                if (i != 9 || !bln9PlayerTable)
+                {
+                    if (strPlayerOfInterest.ToUpper() == plr[i].strName.ToUpper())
+                    {
+                        lngPlayerOfInterestDbHandPlayerId = plr[i].lngDbHandPlayerId;
+                        break;
+                    }
+                }
+            }
+
+            frmDataDisplay.PlayerOfInterest(strPlayerOfInterest, lngPlayerOfInterestDbHandPlayerId);
+        }
+
+        /// <summary>
+        /// Generic event handler for TextBox_EnabledChanged event
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        public void txt_EnabledChanged(object sender, EventArgs e)
+        {
+            TextBox txt = sender as TextBox;
+
+            if (txt.Enabled)
+            {
+                txt.BackColor = Color.White;
+            }
+            else
+            {
+                txt.BackColor = clrControlDisabled;
+            }
+        }
+
         public void picScreenShot_MouseClick(object sender, MouseEventArgs e)
         {
             if (chkShowClickData.Checked)
@@ -518,7 +747,7 @@ namespace BOL_Companion
 
         #region Helper Methods
 
-        // This is the main helper method that does everything important after btnOpenScreenShotFile_Click is called
+        // This is the main helper method that processes all the data on the screen
         private async void UpdateAllData()
         {
             bool blnNewBoardCard = false;
@@ -778,7 +1007,7 @@ namespace BOL_Companion
             }
 
             // Update RtbBoard
-            if (blnBoardChangePrevious || BoardChange())
+            if (blnNewDealer || blnNewDealerPrev || blnBoardChangePrevious || BoardChange())
             {
                 UpdateRtbBoard();
             }
@@ -794,9 +1023,9 @@ namespace BOL_Companion
             {
                 if (i != 9 || !bln9PlayerTable)
                 {
-                    // If player jabaadam (me!) is the action player and was not previously the action player, or if jabaadam is the action 
+                    // If the player of interest is the action player and was not previously the action player, or if the player of interest is the action 
                     // player and a new card has come onto the board update the frmDisplayData window
-                    if (intActionPlayer[0] == i && (intActionPlayer[1] != i || blnNewActionPlayer || blnNewBoardCard) && plr[i].strName.ToLower() == "jabaadam")
+                    if (intActionPlayer[0] == i && (intActionPlayer[1] != i || blnNewActionPlayer || blnNewBoardCard) && plr[i].strName.ToLower() == strPlayerOfInterest.ToLower())
                     {
                         bool[] blnPlrOpenSeat = new bool[10];
                         bool[] blnPlrFolded = new bool[10];
@@ -941,6 +1170,85 @@ namespace BOL_Companion
             }
         }
 
+        /// <summary>
+        /// Verify that we have correct chip counts for the players. The player chip counts could be off in an all-in situation because in all-in situaitons banners pop up and cover the players' chip counts. In the case where a player with more chips goes all-in and another player or players call his bet chip counts will be off because the player with more chips will have all his chips in the pot and the player(s) that called will not.
+        /// </summary>
+        /// <param name="intCurrPlr">The index of the current player being processed</param>
+        /// <returns>The amount the current player bet</returns>
+        private int CorrectAllInChipCounts(int intCurrPlr)
+        {
+            int intBetAmount, intPlr1PrevChips, intPlr2PrevChips;
+            intBetAmount = 0;
+
+            // Verify chip counts
+            int intPlr1stMostChipsInPot, intPlr2ndMostChipsInPot, int1stMostChipsInPot, int2ndMostChipsInPot;
+            intPlr1stMostChipsInPot = -1;
+            intPlr2ndMostChipsInPot = -1;
+            int1stMostChipsInPot = -1;
+            int2ndMostChipsInPot = -1;
+
+            for (int i = 0; i < 10; i++)
+            {
+                if (i != 9 || !bln9PlayerTable)
+                {
+                    // check if player is still in the game (assuming all remaining players have both of their hold cards shown at this point)
+                    if (plr[i].intHoldCardsCurr[0] > 0)
+                    {
+                        if (plr[i].intChipsInPot > int1stMostChipsInPot)
+                        {
+                            intPlr2ndMostChipsInPot = intPlr1stMostChipsInPot;
+                            int2ndMostChipsInPot = int1stMostChipsInPot;
+
+                            intPlr1stMostChipsInPot = i;
+                            int1stMostChipsInPot = plr[i].intChipsInPot;
+                        }
+                        else if (plr[i].intChipsInPot > int2ndMostChipsInPot)
+                        {
+                            intPlr2ndMostChipsInPot = i;
+                            int2ndMostChipsInPot = plr[i].intChipsInPot;
+                        }
+                    }
+                }
+            }
+
+            intPlr1PrevChips = plr[intPlr1stMostChipsInPot].intChipStackPrev;
+            intPlr2PrevChips = plr[intPlr2ndMostChipsInPot].intChipStackPrev;
+
+            // Correct the chip counts
+            if (int1stMostChipsInPot != int2ndMostChipsInPot)
+            {
+                if (plr[intPlr2ndMostChipsInPot].intChipStackPrev > 0)
+                {
+                    // The player with the second most chips in the pot is calling and has enough chips to cover the bet
+                    if (intPlr2PrevChips + int2ndMostChipsInPot >= int1stMostChipsInPot)
+                    {
+                        plr[intPlr2ndMostChipsInPot].intChipStackPrev -= (int1stMostChipsInPot - int2ndMostChipsInPot);
+                        plr[intPlr2ndMostChipsInPot].intChipsInPot = int1stMostChipsInPot;
+                    }
+                    // The player with the second most chips in the pot is calling but doesn't have enough chips to cover the bet
+                    else
+                    {
+                        plr[intPlr2ndMostChipsInPot].intChipsInPot += plr[intPlr2ndMostChipsInPot].intChipStackPrev;
+                        plr[intPlr2ndMostChipsInPot].intChipStackPrev = 0;
+
+                        plr[intPlr1stMostChipsInPot].intChipStackPrev = plr[intPlr1stMostChipsInPot].intChipsInPot - plr[intPlr2ndMostChipsInPot].intChipsInPot;
+                        plr[intPlr1stMostChipsInPot].intChipsInPot = plr[intPlr2ndMostChipsInPot].intChipsInPot;
+                    }
+                }
+            }
+
+            if (intCurrPlr == intPlr1stMostChipsInPot)
+            {
+                intBetAmount = intPlr1PrevChips - plr[intPlr1stMostChipsInPot].intChipStackPrev;
+            }
+            else if (intCurrPlr == intPlr2ndMostChipsInPot)
+            {
+                intBetAmount = intPlr2PrevChips - plr[intPlr2ndMostChipsInPot].intChipStackPrev;
+            }
+
+            return intBetAmount;
+        }
+
         private void UpdateRtbPotDealerAction(bool blnPotChange, bool blnDealerChange, bool blnActionPlayerChange)
         {
             string strDealer, strActionPlayer, strCurrPlayer, strSb, strBb;
@@ -1028,7 +1336,7 @@ namespace BOL_Companion
                             {
                                 txtErrorMessages.AppendText("\r\n");
                             }
-                            txtErrorMessages.AppendText("Houston we have a problem!!!, A Chip Accounting Error has Occcured");
+                            txtErrorMessages.AppendText("Houston we have a problem!!!, A Chip Accounting Error has Occcured - " + DateTime.Now.ToLongTimeString());
 
                             plr[intPlayerMostChipsInPot].intChipsInPot = plr[intPlayerSecondMostChipsInPot].intChipsInPot;
                         }
@@ -1080,6 +1388,7 @@ namespace BOL_Companion
                             if (intChipsInLeast == 0)
                             {
                                 intChipsInLeast = plr[i].intChipsInPot;
+                                intPlayerChipsInLeast = i;
                             }
                             else
                             {
@@ -1097,24 +1406,54 @@ namespace BOL_Companion
                         }
                     }
                 }
+
                 // More than one winner
                 if (intWinnersCount > 1)
                 {
                     // Winners split the winnings evenly
                     if (blnEqualSplit)
                     {
-                        for (int i = 0; i < 10; i++)
-                        {
-                            if (blnWinners[i])
-                            {
-                                strCurrPlayer = GetPlayerName(i);
+                        // Handle the winners in order starting with the first winner to the left of the dealer
+                        int intWinnerIndex;
+                        int intExtraChips;
 
-                                intChipsWon[i] = intPot[1] / intWinnersCount;
+                        intExtraChips = intPot[1] % intWinnersCount;
+
+                        for (int z = 0; z < 10; z++)
+                        {
+                            intWinnerIndex = intDealer[1] + 1 + z;
+
+                            if (intWinnerIndex > 9)
+                            {
+                                intWinnerIndex -= 10;
+                            }
+
+                            intChipsWon[intWinnerIndex] = 0;
+
+                            if (blnWinners[intWinnerIndex])
+                            {
+                                if (intExtraChips != 0)
+                                {
+                                    // Deal with the special case where the pot doesn't split evenly amongst the winners. There are different ways
+                                    // to handle this case but it looks like Bet Online's poker site handles this case by giving the remaining
+                                    // chips that don't split evenly amongst the winners (usually one chip) to the the winners to the left of the
+                                    // dealer chip one each until there are none left. This is the explination I found that Bet Online's site seems
+                                    // to follow:
+                                    // In games with blinds (like Texas Holdem and Draw games), extra chips are given to the players in order after 
+                                    // the button. That is, eldest hand gets first odd chip, second eldest hand gets the next one, etc. 
+                                    intChipsWon[intWinnerIndex]++;
+                                    intExtraChips--;
+                                }
+
+                                // Split the pot into equal parts for each of the winners
+                                strCurrPlayer = GetPlayerName(intWinnerIndex);
+
+                                intChipsWon[intWinnerIndex] += intPot[1] / intWinnersCount;
                                 SetColoredRtbText(rtbStatus, clrDataChange, strCurrPlayer + ":");
-                                rtbStatus.AppendText(" won " + (intChipsWon[i]).ToString() + "\n");
+                                rtbStatus.AppendText(" won " + (intChipsWon[intWinnerIndex]).ToString() + "\n");
 
                                 // DB stuff
-                                Db_.InsertPlayerAction(plr[i].lngDbHandPlayerId, -1 * intChipsWon[i], intDbHandActionNum);
+                                Db_.InsertPlayerAction(plr[intWinnerIndex].lngDbHandPlayerId, -1 * intChipsWon[intWinnerIndex], intDbHandActionNum);
                                 intDbHandActionNum++;
                             }
                         }
@@ -1274,6 +1613,12 @@ namespace BOL_Companion
                                     + "\n");
                                 intActivePlayers++;
                                 plr[i].lngDbHandPlayerId = Db_.InsertHandPlayer(lngDbHandId, plr[i].intDbPlayerId, plr[i].intChipStackPrev + (intPot[1] / intWinnersCount), 0, 0, 0);
+                            }
+
+                            // Update player of interest data in frmDataDisplay.cs
+                            if (strPlayerOfInterest == plr[i].strName)
+                            {
+                                frmDataDisplay.PlayerOfInterest(plr[i].strName, plr[i].lngDbHandPlayerId);
                             }
 
                             // Figure out the big blind and small blind
@@ -1470,11 +1815,13 @@ namespace BOL_Companion
                             Db_.InsertPlayerAction(plr[i].lngDbHandPlayerId, 0, intDbHandActionNum);
                             intDbHandActionNum++;
                         }
-                        else if (plr[i].intHoldCardsCurr[0] != plr[i].intHoldCardsPrev[0] || plr[i].intHoldCardsCurr[1] != plr[i].intHoldCardsPrev[1])
+                        else if (plr[i].blnHoldCardChange)
                         {
                             string strHc1, strHc2;
                             strHc1 = pssWorkers[i].CardIntToString(plr[i].intHoldCardsCurr[0]);
                             strHc2 = pssWorkers[i].CardIntToString(plr[i].intHoldCardsCurr[1]);
+
+                            plr[i].blnHoldCardChange = false;
 
                             if (strHc1 == " - - " && !blnShowdown)
                             {
@@ -1486,7 +1833,14 @@ namespace BOL_Companion
                                 {
                                     if (j != i && pssWorkers[j].CardIntToString(plr[j].intHoldCardsCurr[0]) != " - - " && !plr[j].blnOpenSeatCurr)
                                     {
-                                        SetColoredRtbText(rtbStatus, clrDataChange, plr[i].strName + ":");
+                                        if (plr[i].strName != "")
+                                        {
+                                            SetColoredRtbText(rtbStatus, clrDataChange, plr[i].strName + ":");
+                                        }
+                                        else
+                                        {
+                                            SetColoredRtbText(rtbStatus, clrDataChange, "Player " + (i + 1).ToString() + ":");
+                                        }
                                         rtbStatus.AppendText(" folded\n");
                                         rtbStatus.ScrollToCaret();
                                         // if folded break out of the loop. Only need to show this once
@@ -1501,7 +1855,7 @@ namespace BOL_Companion
                             }
                             else if ((strHc1 != "XX" && strHc1 != " - - ") || (strHc2 != "XX" && strHc2 != " - - "))
                             {
-                                if (plr[i].strName.ToLower() != "jabaadam" && plr[i].strNameTemp.ToLower() != "jabaadam")
+                                if (plr[i].strName.ToLower() != strPlayerOfInterest.ToLower() && plr[i].strNameTemp.ToLower() != strPlayerOfInterest.ToLower())
                                 {
                                     strPlayer = GetPlayerName(i);
 
@@ -1550,14 +1904,12 @@ namespace BOL_Companion
 
                                     Bitmap bmpTemp;
                                     bmpTemp = pssWorkers[i].ShareScreenShot();
-                                    bmpMyHand = new Bitmap((Bitmap)bmpTemp.Clone(new Rectangle(65, 9, 115, bmpTemp.Height - 9), bmpTemp.PixelFormat));
+                                    bmpMyHand = new Bitmap((Bitmap)bmpTemp.Clone(new Rectangle(54, 0, 155, bmpTemp.Height), bmpTemp.PixelFormat));
                                     picMyHand.Size = new Size(bmpMyHand.Width, bmpMyHand.Height);
                                     picMyHand.Image = bmpMyHand;
                                     picMyHand.BringToFront();
                                 }
                             }
-
-                            plr[i].blnHoldCardChange = true;
                         }
 
                         plr[i].blnFirstFold = false;
@@ -1570,7 +1922,14 @@ namespace BOL_Companion
                         {
                             if (intPot[0] > intPot[1] && intActionPlayer[1] == i)
                             {
-                                strChipStack = (plr[i].intChipStackPrev - (intPot[0] - intPot[1])).ToString();
+                                // Only run this code for the player that is calling the all-in bet
+                                if (plr[i].intChipStackPrev > 0)
+                                {
+                                    intCorrectedAllInBet = CorrectAllInChipCounts(i);
+
+                                    blnAllInChipStacksCorrected = true;
+                                }
+                                strChipStack = plr[i].intChipStackPrev.ToString();
                             }
                             else
                             {
@@ -1614,14 +1973,28 @@ namespace BOL_Companion
                                         }
                                         else
                                         {
-                                            plr[i].intChipsInPot = plr[i].intChipsInPot + (intPot[0] - intPot[1]);
-                                            rtbStatus.AppendText(" bet " + (intPot[0] - intPot[1]).ToString() +
-                                                " - " + strChipStack + "\n");
-                                            plr[i].intChipStackPrev -= (intPot[0] - intPot[1]);
-                                            rtbStatus.ScrollToCaret();
+                                            if (!blnAllInChipStacksCorrected)
+                                            {
+                                                plr[i].intChipsInPot = plr[i].intChipsInPot + (intPot[0] - intPot[1]);
+                                                rtbStatus.AppendText(" bet " + (intPot[0] - intPot[1]).ToString() +
+                                                    " - " + strChipStack + "\n");
+                                                plr[i].intChipStackPrev -= (intPot[0] - intPot[1]);
+                                                rtbStatus.ScrollToCaret();
 
-                                            // DB stuff
-                                            Db_.InsertPlayerAction(plr[i].lngDbHandPlayerId, (intPot[0] - intPot[1]), intDbHandActionNum);
+                                                // DB stuff
+                                                Db_.InsertPlayerAction(plr[i].lngDbHandPlayerId, (intPot[0] - intPot[1]), intDbHandActionNum);
+                                            }
+                                            else
+                                            {
+                                                rtbStatus.AppendText(" bet " + (intCorrectedAllInBet).ToString() +
+                                                    " - " + strChipStack + "\n");
+                                                rtbStatus.ScrollToCaret();
+
+                                                // DB stuff
+                                                Db_.InsertPlayerAction(plr[i].lngDbHandPlayerId, (intCorrectedAllInBet), intDbHandActionNum);
+
+                                                blnAllInChipStacksCorrected = false;
+                                            }
                                             intDbHandActionNum++;
                                         }
                                     }
@@ -2076,9 +2449,14 @@ namespace BOL_Companion
                         blnChange = true;
                     }
 
-                    if (plr[i].blnChipStackChangePrev || plr[i].blnOpenSeatChangePrev || plr[i].blnHoldCardChange)
+                    if (!blnChange && plr[i].blnChipStackChangePrev || plr[i].blnOpenSeatChangePrev)
                     {
                         blnChange = true;
+                    }
+                    if (plr[i].intHoldCardsCurr[0] != plr[i].intHoldCardsPrev[0] || plr[i].intHoldCardsCurr[1] != plr[i].intHoldCardsPrev[1])
+                    {
+                        blnChange = true;
+                        plr[i].blnHoldCardChange = true;
                     }
                 }
             }
@@ -2090,7 +2468,7 @@ namespace BOL_Companion
         {
             if (blnClearRects)
             {
-                bmpScreenShot = (Bitmap)Bitmap.FromFile(strFilePath);
+                bmpScreenShot = (Bitmap)Bitmap.FromFile(strScreenshotFilePath);
                 gfxScreenShot = Graphics.FromImage(bmpScreenShot);
             }
 
@@ -2226,57 +2604,75 @@ namespace BOL_Companion
 
                         if (strNewPlayerName.ToUpper() == "ALL-IN")
                         {
-                            // This is the case where a player has gone all in and the remaining players' hold cards are shown.
-                            // Note: The issue here (the reason for this section of code) is when this happen's the remaining players'
-                            // chances of winning are shown over their chip count so the players' chip counts cannot be read. Therefore if  
-                            // strNewPlayerName == "All-In" update that player's chip count accordingly. 
-                            plr[i].intChipStackCurr = 0;
-
-                            if (intPlayerId > i)
-                            {
-                                plr[i].blnSkipInfoCheck = true;
-                            }
-
-                            // Also check the chip counts of the remaining players and make sure they have either put in as many chips as the 
-                            // all in player or they have gone all in themselves. This is for the case where a player bets more chips than 
-                            // the other player has and that other player instantly goes all in before the first player's bet could be 
-                            // registered. 
+                            // First check to make sure the chip counts aren't already correct. This could happen if a player has gone
+                            // all in and only one other player is left in the hand and that other player has more than enough chips to
+                            // call but clicks "all-in" instead of call. This is really a call because the player that has already gone 
+                            // all in has no means to call this larger bet.
+                            int intSumOfChipsInPot = 0;
 
                             for (int j = 0; j < 10; j++)
                             {
                                 if (j != 9 || !bln9PlayerTable)
                                 {
-                                    if (plr[j].intHoldCardsCurr[0] != -1)
+                                    intSumOfChipsInPot += plr[j].intChipsInPot;
+                                }
+                            }
+
+                            if (intSumOfChipsInPot != intPot[0])
+                            {
+
+                                // This is the case where a player has gone all in and the remaining players' hold cards are shown.
+                                // Note: The issue here (the reason for this section of code) is when this happen's the remaining players'
+                                // chances of winning are shown over their chip count so the players' chip counts cannot be read. Therefore if  
+                                // strNewPlayerName == "All-In" update that player's chip count accordingly. 
+                                plr[i].intChipStackCurr = 0;
+
+                                if (intPlayerId > i)
+                                {
+                                    plr[i].blnSkipInfoCheck = true;
+                                }
+
+                                // Also check the chip counts of the remaining players and make sure they have either put in as many chips as the 
+                                // all in player or they have gone all in themselves. This is for the case where a player bets more chips than 
+                                // the other player has and that other player instantly goes all in before the first player's bet could be 
+                                // registered. 
+
+                                for (int j = 0; j < 10; j++)
+                                {
+                                    if (j != 9 || !bln9PlayerTable)
                                     {
-                                        // The player is still in the hand
-                                        if (plr[j].intChipsInPot < plr[i].intChipsInPot + plr[i].intChipStackPrev)
+                                        if (plr[j].intHoldCardsCurr[0] != -1)
                                         {
-                                            // The player has less chips in the pot than the all-in player
-                                            if (plr[j].intChipStackCurr > 0)
+                                            // The player is still in the hand
+                                            if (plr[j].intChipsInPot < plr[i].intChipsInPot + plr[i].intChipStackPrev)
                                             {
-                                                // The player has some chips left in his chipstack
-                                                if (plr[j].intChipsInPot + plr[j].intChipStackCurr > plr[i].intChipsInPot + plr[i].intChipStackPrev)
+                                                // The player has less chips in the pot than the all-in player
+                                                if (plr[j].intChipStackCurr > 0)
                                                 {
-                                                    // The player has more than enough chips to cover the bet
-
-                                                    // My thinking here is the current player's chipstack is equal to what he had previously minus 
-                                                    // the quantity everything that the all in player put in minus what the current player had
-                                                    // already put in the pot.
-                                                    plr[j].intChipStackCurr = plr[j].intChipStackPrev - (plr[i].intChipsInPot + plr[i].intChipStackPrev - plr[i].intChipsInPot);
-
-                                                    if (intPlayerId > j)
+                                                    // The player has some chips left in his chipstack
+                                                    if (plr[j].intChipsInPot + plr[j].intChipStackCurr > plr[i].intChipsInPot + plr[i].intChipStackPrev)
                                                     {
-                                                        plr[j].blnSkipInfoCheck = true;
+                                                        // The player has more than enough chips to cover the bet
+
+                                                        // My thinking here is the current player's chipstack is equal to what he had previously minus 
+                                                        // the quantity everything that the all in player put in minus what the current player had
+                                                        // already put in the pot.
+                                                        plr[j].intChipStackCurr = plr[j].intChipStackPrev - (plr[i].intChipsInPot + plr[i].intChipStackPrev - plr[i].intChipsInPot);
+
+                                                        if (intPlayerId > j)
+                                                        {
+                                                            plr[j].blnSkipInfoCheck = true;
+                                                        }
                                                     }
-                                                }
-                                                else
-                                                {
-                                                    // The player's chip stack is less than or equal to the amount needed to cover the bet
-                                                    plr[j].intChipStackCurr = 0;
-
-                                                    if (intPlayerId > j)
+                                                    else
                                                     {
-                                                        plr[j].blnSkipInfoCheck = true;
+                                                        // The player's chip stack is less than or equal to the amount needed to cover the bet
+                                                        plr[j].intChipStackCurr = 0;
+
+                                                        if (intPlayerId > j)
+                                                        {
+                                                            plr[j].blnSkipInfoCheck = true;
+                                                        }
                                                     }
                                                 }
                                             }
@@ -2335,16 +2731,22 @@ namespace BOL_Companion
                                     {
                                         int intHcStatus;
 
-                                        // Update player hold cards
-                                        plr[j].intHoldCardsPrev[0] = plr[j].intHoldCardsCurr[0];
-                                        plr[j].intHoldCardsPrev[1] = plr[j].intHoldCardsCurr[1];
+                                        if (blnAllTasks)
+                                        {
+                                            // Update player hold cards
+                                            plr[j].intHoldCardsPrev[0] = plr[j].intHoldCardsCurr[0];
+                                            plr[j].intHoldCardsPrev[1] = plr[j].intHoldCardsCurr[1];
+                                        }
 
                                         // Always check the hold card status (as long as it's not an open seat on a continuing hand)
                                         // Use this as a secondary check for a new hand --> if a player didn't have cards before (folded)
                                         // but has cards now without the dealer changing.
                                         // This happens when the player who was the first to act player (player to the left of the dealer) 
                                         // gets eliminated on the previous hand. This is done so the next first to act player doesn't skip
-                                        // his blinds
+                                        // his blinds.
+                                        // Additionally, if blnAllTasks is true this means this method is being re-run because a secondary
+                                        // new hand was detected. In this case no need to check the player hold cards because they were
+                                        // just checked and not updated.
 
                                         // intHcStatus (Hold Card Status) == 
                                         // -1 no hold card (no cards, folded or not playing)
@@ -2362,12 +2764,12 @@ namespace BOL_Companion
                                         else if (intHcStatus == 1)
                                         {
                                             // only find the hold card if this is a new hold card
-                                            if (plr[j].intHoldCardsCurr[0] < 1)
+                                            if (plr[j].intHoldCardsCurr[0] < 1 || blnNewDealer)
                                             {
                                                 plr[j].intHoldCardsCurr[0] = pssWorkers[j].FindHc(true, blnSaveBitmaps);
                                             }
                                             // only find the hold card if this is a new hold card
-                                            if (plr[j].intHoldCardsCurr[1] < 1)
+                                            if (plr[j].intHoldCardsCurr[1] < 1 || blnNewDealer)
                                             {
                                                 plr[j].intHoldCardsCurr[1] = pssWorkers[j].FindHc(false, blnSaveBitmaps);
                                             }

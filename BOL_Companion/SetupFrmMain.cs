@@ -8,6 +8,9 @@ using System.Windows.Forms;
 
 namespace BOL_Companion
 {
+    /// <summary>
+    /// This class sets the size and location of frmMain and intializes all the form controls, their attributes and defines their locations.
+    /// </summary>
     class SetupFrmMain
     {
         private frmMain frm;
@@ -23,54 +26,113 @@ namespace BOL_Companion
 
         private void InitializeForm()
         {
-            frm.Location = Screen.AllScreens[3].WorkingArea.Location;
+            if (Screen.AllScreens.Count() < 2)
+            {
+                frm.Location = Screen.AllScreens[0].WorkingArea.Location;
+            }
+            else
+            {
+                frm.Location = Screen.AllScreens[1].WorkingArea.Location;
+            }
             frm.WindowState = FormWindowState.Maximized;
-            frm.Text = "Adam's Bet Online Poker Companion";
+            frm.Text = "Control";
+            frm.BackColor = frm.clrRtbBackground;
         }
 
         private void InitializeControls()
         {
+            #region Tooltips
+
+            // Note: The same tooltip can be used for many controls
+            frm.tipFrmMain = new ToolTip();
+            frm.tipFrmMain.AutoPopDelay = 12000;
+            frm.tipFrmMain.InitialDelay = 1000;
+            frm.tipFrmMain.ReshowDelay = 500;
+            frm.tipFrmMain.ShowAlways = true;
+
+            #endregion
+
+            #region GroupBoxes
+
+            frm.grpBasicSettings = new GroupBox();
+            frm.grpBasicSettings.Anchor = AnchorStyles.None;
+            frm.grpBasicSettings.Text = "Basic Settings";
+            frm.grpBasicSettings.BackColor = frm.clrRtbBackground;
+            frm.grpBasicSettings.ForeColor = frm.clrNormalText;
+            frm.Controls.Add(frm.grpBasicSettings);
+
+            frm.grpProgramControl = new GroupBox();
+            frm.grpProgramControl.Anchor = AnchorStyles.None;
+            frm.grpProgramControl.Text = "Program Control";
+            frm.grpProgramControl.BackColor = frm.clrRtbBackground;
+            frm.grpProgramControl.ForeColor = frm.clrNormalText;
+            frm.Controls.Add(frm.grpProgramControl);
+
+            frm.grpBitmapLocationTools = new GroupBox();
+            frm.grpBitmapLocationTools.Anchor = AnchorStyles.None;
+            frm.grpBitmapLocationTools.Text = "Bitmap Location Tools";
+            frm.grpBitmapLocationTools.BackColor = frm.clrRtbBackground;
+            frm.grpBitmapLocationTools.ForeColor = frm.clrNormalText;
+            frm.Controls.Add(frm.grpBitmapLocationTools);
+
+            frm.grpErrorLogging = new GroupBox();
+            frm.grpErrorLogging.Anchor = AnchorStyles.None;
+            frm.grpErrorLogging.Text = "Error Logging";
+            frm.grpErrorLogging.BackColor = frm.clrRtbBackground;
+            frm.grpErrorLogging.ForeColor = frm.clrNormalText;
+            frm.Controls.Add(frm.grpErrorLogging);
+
+            #endregion
+
             #region Labels
+
+            frm.lblPlayerOfInterest = new Label();
+            frm.lblPlayerOfInterest.Anchor = AnchorStyles.None;
+            frm.lblPlayerOfInterest.Text = "Player of Interest";
+            frm.tipFrmMain.SetToolTip(frm.lblPlayerOfInterest,
+                "This is the player for whom you want data to be displayed. If you are\n" +
+                "playing a live game this should be your username.");
+            frm.grpBasicSettings.Controls.Add(frm.lblPlayerOfInterest);
 
             frm.lblRectX = new Label();
             frm.lblRectX.Anchor = AnchorStyles.None;
-            frm.lblRectX.Text = "X Coordinate";
-            frm.Controls.Add(frm.lblRectX);
+            frm.lblRectX.Text = "X-Coordinate";
+            frm.grpBitmapLocationTools.Controls.Add(frm.lblRectX);
 
             frm.lblRectY = new Label();
             frm.lblRectY.Anchor = AnchorStyles.None;
-            frm.lblRectY.Text = "Y Coordinate";
-            frm.Controls.Add(frm.lblRectY);
+            frm.lblRectY.Text = "Y-Coordinate";
+            frm.grpBitmapLocationTools.Controls.Add(frm.lblRectY);
 
             frm.lblRectWidth = new Label();
             frm.lblRectWidth.Anchor = AnchorStyles.None;
             frm.lblRectWidth.Text = "Width";
-            frm.Controls.Add(frm.lblRectWidth);
+            frm.grpBitmapLocationTools.Controls.Add(frm.lblRectWidth);
 
             frm.lblRectHeight = new Label();
             frm.lblRectHeight.Anchor = AnchorStyles.None;
             frm.lblRectHeight.Text = "Height";
-            frm.Controls.Add(frm.lblRectHeight);
+            frm.grpBitmapLocationTools.Controls.Add(frm.lblRectHeight);
 
             frm.lblMouseClickX = new Label();
             frm.lblMouseClickX.Anchor = AnchorStyles.None;
             frm.lblMouseClickX.Text = frm.strMouseLabelX + "N/A";
-            frm.Controls.Add(frm.lblMouseClickX);
+            frm.grpBitmapLocationTools.Controls.Add(frm.lblMouseClickX);
 
             frm.lblMouseClickY = new Label();
             frm.lblMouseClickY.Anchor = AnchorStyles.None;
             frm.lblMouseClickY.Text = frm.strMouseLabelY + "N/A";
-            frm.Controls.Add(frm.lblMouseClickY);
+            frm.grpBitmapLocationTools.Controls.Add(frm.lblMouseClickY);
 
             frm.lblMouseClickClr = new Label();
             frm.lblMouseClickClr.Anchor = AnchorStyles.None;
             frm.lblMouseClickClr.Text = frm.strMouseLabelClr + "N/A";
-            frm.Controls.Add(frm.lblMouseClickClr);
+            frm.grpBitmapLocationTools.Controls.Add(frm.lblMouseClickClr);
 
             frm.lblMouseClickBright = new Label();
             frm.lblMouseClickBright.Anchor = AnchorStyles.None;
             frm.lblMouseClickBright.Text = frm.strMouseLabelBright + "N/A";
-            frm.Controls.Add(frm.lblMouseClickBright);
+            frm.grpBitmapLocationTools.Controls.Add(frm.lblMouseClickBright);
 
             #endregion
 
@@ -80,64 +142,119 @@ namespace BOL_Companion
             frm.chkClearRects.Anchor = AnchorStyles.None;
             frm.chkClearRects.Text = "Clear Rectangles";
             frm.chkClearRects.Checked = false;
-            frm.Controls.Add(frm.chkClearRects);
+            frm.tipFrmMain.SetToolTip(frm.chkClearRects,
+                "Clear all rectangles drawn on the screen (if any) the\n" +
+                "next time a screenshot is processed");
+            // I am not adding this checkbox to the form. This checkbox has limited, non-critical functionality so i'm removing it for now.
+            // Uncomment the line below to re-enable this checkbox. 2020.04.10
+            // frm.grpBitmapLocationTools.Controls.Add(frm.chkClearRects);
 
             frm.chkSaveBitmaps = new CheckBox();
             frm.chkSaveBitmaps.Anchor = AnchorStyles.None;
             frm.chkSaveBitmaps.Text = "Save Bitmap Files";
             frm.chkSaveBitmaps.Checked = false;
-            frm.Controls.Add(frm.chkSaveBitmaps);
+            frm.tipFrmMain.SetToolTip(frm.chkSaveBitmaps, 
+                "Save a copy of the bitmap files that this program uses to determine\n" +
+                "what actions have taken place. This can be helpful for troubleshooting.");
+            frm.grpBasicSettings.Controls.Add(frm.chkSaveBitmaps);
+            frm.chkSaveBitmaps.CheckedChanged += new EventHandler(frm.chkSaveBitmaps_CheckChanged);
 
             frm.chkAutoNextScreenShot = new CheckBox();
             frm.chkAutoNextScreenShot.Anchor = AnchorStyles.None;
             frm.chkAutoNextScreenShot.Text = "Auto Continue to Next";
             frm.chkAutoNextScreenShot.Checked = false;
             frm.chkAutoNextScreenShot.Enabled = false;
-            frm.Controls.Add(frm.chkAutoNextScreenShot);
+            frm.chkAutoNextScreenShot.BackColor = frm.clrControlDisabled;
+            frm.tipFrmMain.SetToolTip(frm.chkAutoNextScreenShot, 
+                "Advance to the next screenshot in the file with the \"Next Screnshot\" button\n" +
+                "instead of using the \"Open Screenshot\" button and selecting the file.");
+            frm.grpProgramControl.Controls.Add(frm.chkAutoNextScreenShot);
+            frm.chkAutoNextScreenShot.EnabledChanged += new EventHandler(frm.chk_EnabledChanged);
 
             frm.chkShowClickData = new CheckBox();
             frm.chkShowClickData.Anchor = AnchorStyles.None;
             frm.chkShowClickData.Text = "Show Mouse Click Data";
             frm.chkShowClickData.Checked = false;
-            frm.Controls.Add(frm.chkShowClickData);
+            frm.tipFrmMain.SetToolTip(frm.chkShowClickData,
+                "Show the coordinates (in pixels), the color (in RGB format)\n" +
+                "and the brightness value of pixels clicked on with the mouse.\n" +
+                "The data will be displayed on the lines below.");
+            frm.grpBitmapLocationTools.Controls.Add(frm.chkShowClickData);
             frm.chkShowClickData.CheckedChanged += new EventHandler(frm.chkShowClickData_CheckChanged);
+            frm.chkShowClickData.EnabledChanged += new EventHandler(frm.chk_EnabledChanged);
 
             #endregion
 
             #region RadioButtons
 
+            frm.rdoModeScreenshotMode = new RadioButton();
+            frm.rdoModeScreenshotMode.Anchor = AnchorStyles.None;
+            frm.rdoModeScreenshotMode.Text = "Screenshots\nMode";
+            frm.rdoModeScreenshotMode.Checked = true;
+            frm.tipFrmMain.SetToolTip(frm.rdoModeScreenshotMode,
+                "Run this program based on saved screenshots such as screenshots\n" +
+                "saved from a previous poker game you were watching or playing.");
+            frm.grpBasicSettings.Controls.Add(frm.rdoModeScreenshotMode);
+            frm.rdoModeScreenshotMode.CheckedChanged += new EventHandler(frm.rdoModeScreenshotMode_CheckChanged);
+
+            frm.rdoModeLiveGame = new RadioButton();
+            frm.rdoModeLiveGame.Anchor = AnchorStyles.None;
+            frm.rdoModeLiveGame.Text = "Live Game\nMode";
+            frm.tipFrmMain.SetToolTip(frm.rdoModeLiveGame,
+                "Process data from a poker game that is being played live. Screenshots\n" +
+                "will be automatically taken and processed periodically.");
+            frm.grpBasicSettings.Controls.Add(frm.rdoModeLiveGame);
+            frm.rdoModeLiveGame.CheckedChanged += new EventHandler(frm.rdoModeLiveGame_CheckChanged);
+
             frm.rdo9PlayerTable = new RadioButton();
             frm.rdo9PlayerTable.Anchor = AnchorStyles.None;
             frm.rdo9PlayerTable.Text = "9-Player\nTable";
             frm.rdo9PlayerTable.Checked = true;
-            frm.Controls.Add(frm.rdo9PlayerTable);
+            // I am not adding this radio button to the form. I decided for simplicity to make this only work with 9-player tables for now.
+            // Uncomment the line below to re-enable switching between 9 player and 10 player tables. 2020.03.23
+            // frm.grpBasicSettings.Controls.Add(frm.rdo9PlayerTable);
             frm.rdo9PlayerTable.CheckedChanged += new EventHandler(frm.rdo9PlayerTable_CheckChanged);
 
             frm.rdo10PlayerTable = new RadioButton();
             frm.rdo10PlayerTable.Anchor = AnchorStyles.None;
             frm.rdo10PlayerTable.Text = "10-Player\nTable";
-            frm.Controls.Add(frm.rdo10PlayerTable);
+            // I am not adding this radio button to the form. I decided for simplicity to make this only work with 9-player tables for now.
+            // Uncomment the line below to re-enable switching between 9 player and 10 player tables. 2020.03.23
+            // frm.grpBasicSettings.Controls.Add(frm.rdo10PlayerTable);
             frm.rdo10PlayerTable.CheckedChanged += new EventHandler(frm.rdo10PlayerTable_CheckChanged);
 
             #endregion
 
             #region TextBoxes
 
+            frm.txtPlayerOfInterest = new TextBox();
+            frm.txtPlayerOfInterest.Anchor = AnchorStyles.None;
+            frm.txtPlayerOfInterest.Text = "JabaAdam";
+            frm.tipFrmMain.SetToolTip(frm.txtPlayerOfInterest,
+                "This is the player for whom you want data to be displayed. If you are\n" +
+                "playing a live game this should be your username.");
+            frm.grpBasicSettings.Controls.Add(frm.txtPlayerOfInterest);
+            frm.txtPlayerOfInterest.TextChanged += new EventHandler(frm.txtPlayerOfInterest_TextChanged);
+
             frm.txtRectX = new TextBox();
             frm.txtRectX.Anchor = AnchorStyles.None;
-            frm.Controls.Add(frm.txtRectX);
+            frm.grpBitmapLocationTools.Controls.Add(frm.txtRectX);
+            frm.txtRectX.EnabledChanged += new EventHandler(frm.txt_EnabledChanged);
 
             frm.txtRectY = new TextBox();
             frm.txtRectY.Anchor = AnchorStyles.None;
-            frm.Controls.Add(frm.txtRectY);
+            frm.grpBitmapLocationTools.Controls.Add(frm.txtRectY);
+            frm.txtRectY.EnabledChanged += new EventHandler(frm.txt_EnabledChanged);
 
             frm.txtRectWidth = new TextBox();
             frm.txtRectWidth.Anchor = AnchorStyles.None;
-            frm.Controls.Add(frm.txtRectWidth);
+            frm.grpBitmapLocationTools.Controls.Add(frm.txtRectWidth);
+            frm.txtRectWidth.EnabledChanged += new EventHandler(frm.txt_EnabledChanged);
 
             frm.txtRectHeight = new TextBox();
             frm.txtRectHeight.Anchor = AnchorStyles.None;
-            frm.Controls.Add(frm.txtRectHeight);
+            frm.grpBitmapLocationTools.Controls.Add(frm.txtRectHeight);
+            frm.txtRectHeight.EnabledChanged += new EventHandler(frm.txt_EnabledChanged);
 
             frm.txtErrorMessages = new TextBox();
             frm.txtErrorMessages.Anchor = AnchorStyles.None;
@@ -146,48 +263,90 @@ namespace BOL_Companion
             frm.txtErrorMessages.WordWrap = true;
             frm.txtErrorMessages.ReadOnly = true;
             frm.txtErrorMessages.TabStop = false;
-            frm.Controls.Add(frm.txtErrorMessages);
+            frm.grpErrorLogging.Controls.Add(frm.txtErrorMessages);
 
             #endregion
 
             #region Buttons
 
+            frm.btnChangeBitmapSaveLocation = new Button();
+            frm.btnChangeBitmapSaveLocation.Anchor = AnchorStyles.None;
+            frm.btnChangeBitmapSaveLocation.Text = "Change location where Bitmaps are saved";
+            frm.btnChangeBitmapSaveLocation.Enabled = false;
+            frm.btnChangeBitmapSaveLocation.BackColor = frm.clrControlDisabled;
+            frm.tipFrmMain.SetToolTip(frm.btnChangeBitmapSaveLocation, 
+                "Choose where to save a copy of the bitmap files that this program\n" +
+                "uses to determine what actions have taken place. This can be helpful\n" +
+                "for troubleshooting.");
+            frm.grpBasicSettings.Controls.Add(frm.btnChangeBitmapSaveLocation);
+            frm.btnChangeBitmapSaveLocation.Click += new EventHandler(frm.btnChangeBitmapSaveLocation_Click);
+            frm.btnChangeBitmapSaveLocation.EnabledChanged += new EventHandler(frm.btn_EnabledChanged);
+
+            frm.btnClearAllDbData = new Button();
+            frm.btnClearAllDbData.Anchor = AnchorStyles.None;
+            frm.btnClearAllDbData.Text = "Clear all database data";
+            frm.tipFrmMain.SetToolTip(frm.btnClearAllDbData, "Clear all the data in the database (all database tables).");
+            frm.grpBasicSettings.Controls.Add(frm.btnClearAllDbData);
+            frm.btnClearAllDbData.Click += new EventHandler(frm.btnClearAllDbData_Click);
+            frm.btnClearAllDbData.EnabledChanged += new EventHandler(frm.btn_EnabledChanged);
+
             frm.btnStartPokerCompanion = new Button();
             frm.btnStartPokerCompanion.Anchor = AnchorStyles.None;
             frm.btnStartPokerCompanion.Text = "Start Poker Companion";
-            frm.Controls.Add(frm.btnStartPokerCompanion);
+            frm.btnStartPokerCompanion.Enabled = false;
+            frm.btnStartPokerCompanion.BackColor = frm.clrControlDisabled;
+            frm.grpProgramControl.Controls.Add(frm.btnStartPokerCompanion);
             frm.btnStartPokerCompanion.Click += new EventHandler(frm.btnStartPokerCompanion_Click);
+            frm.btnStartPokerCompanion.EnabledChanged += new EventHandler(frm.btn_EnabledChanged);
 
             frm.btnOpenScreenShotFile = new Button();
             frm.btnOpenScreenShotFile.Anchor = AnchorStyles.None;
-            frm.btnOpenScreenShotFile.Text = "Open ScreenShot";
-            frm.Controls.Add(frm.btnOpenScreenShotFile);
+            frm.btnOpenScreenShotFile.Text = "Open Screenshot";
+            frm.grpProgramControl.Controls.Add(frm.btnOpenScreenShotFile);
             frm.btnOpenScreenShotFile.Click += new EventHandler(frm.btnOpenScreenShotFile_Click);
+            frm.btnOpenScreenShotFile.EnabledChanged += new EventHandler(frm.btn_EnabledChanged);
 
             frm.btnNextScreenShot = new Button();
             frm.btnNextScreenShot.Anchor = AnchorStyles.None;
-            frm.btnNextScreenShot.Text = "Next Sceen Shot";
+            frm.btnNextScreenShot.Text = "Next Screenshot";
             frm.btnNextScreenShot.Enabled = false;
-            frm.Controls.Add(frm.btnNextScreenShot);
+            frm.btnNextScreenShot.BackColor = frm.clrControlDisabled;
+            frm.grpProgramControl.Controls.Add(frm.btnNextScreenShot);
             frm.btnNextScreenShot.Click += new EventHandler(frm.btnNextScreenShot_Click);
+            frm.btnNextScreenShot.EnabledChanged += new EventHandler(frm.btn_EnabledChanged);
 
             frm.btnCopyBitmapsForWorkers = new Button();
             frm.btnCopyBitmapsForWorkers.Anchor = AnchorStyles.None;
             frm.btnCopyBitmapsForWorkers.Text = "Copy Bitmaps for Workers";
-            frm.Controls.Add(frm.btnCopyBitmapsForWorkers);
+            // I am not adding this button to the form. I decided for simplicity and for spacing purposes (UI layout) to eliminate this control
+            // for now. Uncomment the line below to re-enable this button and it's functionality. 2020.03.29
+            // frm.grpProgramControl.Controls.Add(frm.btnCopyBitmapsForWorkers);
             frm.btnCopyBitmapsForWorkers.Click += new EventHandler(frm.btnCopyBitmapsForWorkers_Click);
 
             frm.btnDrawRect = new Button();
             frm.btnDrawRect.Anchor = AnchorStyles.None;
             frm.btnDrawRect.Text = "Draw Rectangle";
-            frm.Controls.Add(frm.btnDrawRect);
+            frm.tipFrmMain.SetToolTip(frm.btnDrawRect,
+                "Draw a rectangle on the screen based on the coordinates and width and height\n" +
+                "values entered into the above text boxes. All values are in unit of pixels. This\n" +
+                "can be helpful for determining what bitmaps need to be copied to process data and\n" +
+                "what pixels need to be looked at.");
+            frm.grpBitmapLocationTools.Controls.Add(frm.btnDrawRect);
             frm.btnDrawRect.Click += new EventHandler(frm.btnDrawRect_Click);
+            frm.btnDrawRect.EnabledChanged += new EventHandler(frm.btn_EnabledChanged);
 
             frm.btnDrawAllRects = new Button();
             frm.btnDrawAllRects.Anchor = AnchorStyles.None;
             frm.btnDrawAllRects.Text = "Draw All Rectangles";
-            frm.Controls.Add(frm.btnDrawAllRects);
+            frm.tipFrmMain.SetToolTip(frm.btnDrawAllRects,
+                "Draw rectangles around the parts of the screen that this program will use to\n" +
+                "determine what actions have taken place. These include the bitmaps that will\n" +
+                "be copied to determine the Players' names, chip stacks hold cards etc. as well\n" +
+                "as the pixels that will be looked at to determine which player is currently the\n" +
+                "dealer, action player etc.");
+            frm.grpBitmapLocationTools.Controls.Add(frm.btnDrawAllRects);
             frm.btnDrawAllRects.Click += new EventHandler(frm.btnDrawAllRects_Click);
+            frm.btnDrawAllRects.EnabledChanged += new EventHandler(frm.btn_EnabledChanged);
 
             #endregion
 
@@ -349,7 +508,6 @@ namespace BOL_Companion
             frm.picScreenShot.MouseClick += new MouseEventHandler(frm.picScreenShot_MouseClick);
 
             frm.picMyHand = new PictureBox();
-            frm.picMyHand.Location = new Point(1531, 641);
             frm.picMyHand.SizeMode = PictureBoxSizeMode.Normal;
             frm.Controls.Add(frm.picMyHand);
 
@@ -373,31 +531,48 @@ namespace BOL_Companion
 
         private void SetControlLocations()
         {
-            int intXLocationLeft, intXLocationRight, intRtbWidth;
-            Size szeButton, szeTextBox, szeRtbDealerAction, szeRtbStatus, szeRtbBoard, szeDgvPlayers, szeDgvTimers,
-                szeRtbUiIdleTime, szeRtbTotalProcessTime, szeRtbNewHandDetected, szeTxtErrorMessages;
+            int intXLocationLeft, intXLocationRight, intGrpIndentX, intGrpIndentY, intGrpSpacingY, intRtbWidth, intRtbWidthBoard, intRtbWidthDgvPlayers;
+            Size szeGrpBasicSettings, szeGrpProgramControl, szeGrpBitmapLocationTools, szeGrpErrorLog, szeButton, szeTextBox, szeRtbDealerAction, 
+                szeRtbStatus, szeRtbBoard, szeDgvPlayers, szeDgvTimers,szeRtbUiIdleTime, szeRtbTotalProcessTime, szeRtbNewHandDetected, 
+                szeTxtErrorMessages;
 
             intXLocationLeft = 10;
-            intXLocationRight = 1652;
-            intRtbWidth = 256;
+            intXLocationRight = 1677;
+            intGrpIndentX = 12;
+            intGrpIndentY = 18;
+            intGrpSpacingY = 8;
+            intRtbWidth = 238;
+            intRtbWidthBoard = 256;
+            intRtbWidthDgvPlayers = 342;
+            szeGrpBasicSettings = new Size(200, 209);
+            szeGrpProgramControl = new Size(200, 163);
+            szeGrpBitmapLocationTools = new Size(200, 274);
+            szeGrpErrorLog = new Size(262, 130);
             szeButton = new Size(155, 35);
             szeTextBox = new Size(75, 25);
             szeRtbDealerAction = new Size(intRtbWidth, 63);
             szeRtbStatus = new Size(intRtbWidth, 585);
-            szeRtbBoard = new Size(intRtbWidth, 42);
+            szeRtbBoard = new Size(intRtbWidthBoard, 42);
             szeRtbUiIdleTime = new Size(136, 19);
             szeRtbTotalProcessTime = new Size(209, 19);
             szeRtbNewHandDetected = new Size(142, 19);
-            szeDgvPlayers = new Size(342, 221);
+            szeDgvPlayers = new Size(intRtbWidthDgvPlayers, 221);
             szeDgvTimers = new Size(599, 199);
-            szeTxtErrorMessages = new Size(300, 69);
+            szeTxtErrorMessages = new Size(239, 104);
 
+            frm.grpBasicSettings.Size = szeGrpBasicSettings;
+            frm.grpProgramControl.Size = szeGrpProgramControl;
+            frm.grpBitmapLocationTools.Size = szeGrpBitmapLocationTools;
+            frm.grpErrorLogging.Size = szeGrpErrorLog;
+            frm.btnChangeBitmapSaveLocation.Size = szeButton;
+            frm.btnClearAllDbData.Size = szeButton;
             frm.btnStartPokerCompanion.Size = szeButton;
             frm.btnOpenScreenShotFile.Size = szeButton;
             frm.btnNextScreenShot.Size = szeButton;
             frm.btnCopyBitmapsForWorkers.Size = szeButton;
             frm.btnDrawRect.Size = szeButton;
             frm.btnDrawAllRects.Size = szeButton;
+            frm.lblPlayerOfInterest.AutoSize = true;
             frm.lblRectX.AutoSize = true;
             frm.lblRectY.AutoSize = true;
             frm.lblRectHeight.AutoSize = true;
@@ -410,57 +585,81 @@ namespace BOL_Companion
             frm.chkSaveBitmaps.AutoSize = true;
             frm.chkAutoNextScreenShot.AutoSize = true;
             frm.chkShowClickData.AutoSize = true;
+            frm.rdoModeScreenshotMode.AutoSize = true;
+            frm.rdoModeLiveGame.AutoSize = true;
             frm.rdo9PlayerTable.AutoSize = true;
             frm.rdo10PlayerTable.AutoSize = true;
+            frm.txtPlayerOfInterest.Size = new Size(szeButton.Width, szeTextBox.Height);
             frm.txtRectX.Size = szeTextBox;
             frm.txtRectY.Size = szeTextBox;
             frm.txtRectHeight.Size = szeTextBox;
             frm.txtRectWidth.Size = szeTextBox;
             frm.txtErrorMessages.Size = szeTxtErrorMessages;
 
-            // Left Column
-            frm.rdo9PlayerTable.Location = new Point(intXLocationLeft, 159);
-            frm.rdo10PlayerTable.Location = new Point(intXLocationLeft + 80, 159);
+            #region Left Column
 
-            frm.btnStartPokerCompanion.Location = new Point(intXLocationLeft, frm.rdo9PlayerTable.Location.Y + frm.rdo9PlayerTable.Height + 3);
+            #region Basic Settings GroupBox
 
-            frm.chkSaveBitmaps.Location = new Point(intXLocationLeft, frm.btnStartPokerCompanion.Location.Y + frm.btnStartPokerCompanion.Height + 4);
+            frm.grpBasicSettings.Location=new Point(intXLocationLeft, 150);
 
-            frm.btnOpenScreenShotFile.Location = new Point(intXLocationLeft, frm.chkSaveBitmaps.Location.Y + frm.chkSaveBitmaps.Height + 3);
+            frm.rdoModeScreenshotMode.Location = new Point(intGrpIndentX, intGrpIndentY);
+            frm.rdoModeLiveGame.Location = new Point(intGrpIndentX + 100, intGrpIndentY);
+            frm.lblPlayerOfInterest.Location = new Point(intGrpIndentX, frm.rdoModeScreenshotMode.Location.Y + frm.rdoModeScreenshotMode.Height + 5);
+            frm.txtPlayerOfInterest.Location = new Point(intGrpIndentX, frm.lblPlayerOfInterest.Location.Y + frm.lblPlayerOfInterest.Height + 2);
+            frm.chkSaveBitmaps.Location = new Point(intGrpIndentX, frm.txtPlayerOfInterest.Location.Y + frm.txtPlayerOfInterest.Height + 10);
+            frm.btnChangeBitmapSaveLocation.Location = new Point(intGrpIndentX, frm.chkSaveBitmaps.Location.Y + frm.chkSaveBitmaps.Height + 10);
+            // frm.rdo9PlayerTable.Location = new Point(intGrpIndentX, intGrpIndentY);
+            // frm.rdo10PlayerTable.Location = new Point(intGrpIndentX + 80, intGrpIndentY);
+            frm.btnClearAllDbData.Location = new Point(intGrpIndentX, frm.btnChangeBitmapSaveLocation.Location.Y + frm.btnChangeBitmapSaveLocation.Height + 3);
 
-            frm.chkAutoNextScreenShot.Location = new Point(intXLocationLeft, frm.btnOpenScreenShotFile.Location.Y + frm.btnOpenScreenShotFile.Height + 5);
+            #endregion
 
-            frm.btnNextScreenShot.Location = new Point(intXLocationLeft, frm.chkAutoNextScreenShot.Location.Y + frm.chkAutoNextScreenShot.Height + 3);
-            frm.btnCopyBitmapsForWorkers.Location = new Point(intXLocationLeft, frm.btnNextScreenShot.Location.Y + frm.btnNextScreenShot.Height + 5);
+            #region Program Control GroupBox
 
-            frm.chkClearRects.Location = new Point(intXLocationLeft, frm.btnCopyBitmapsForWorkers.Location.Y + frm.btnCopyBitmapsForWorkers.Height + 8);
+            frm.grpProgramControl.Location = new Point(intXLocationLeft, frm.grpBasicSettings.Location.Y + frm.grpBasicSettings.Height + intGrpSpacingY);
 
-            frm.lblRectX.Location = new Point(intXLocationLeft, frm.chkClearRects.Location.Y + frm.chkClearRects.Height + 5);
-            frm.lblRectY.Location = new Point(intXLocationLeft + szeTextBox.Width + 5, frm.chkClearRects.Location.Y + frm.chkClearRects.Height + 5);
+            frm.btnStartPokerCompanion.Location = new Point(intGrpIndentX, intGrpIndentY + 1);
+            frm.btnOpenScreenShotFile.Location = new Point(intGrpIndentX, frm.btnStartPokerCompanion.Location.Y + frm.btnStartPokerCompanion.Height + 3);
+            frm.chkAutoNextScreenShot.Location = new Point(intGrpIndentX, frm.btnOpenScreenShotFile.Location.Y + frm.btnOpenScreenShotFile.Height + 5);
+            frm.btnNextScreenShot.Location = new Point(intGrpIndentX, frm.chkAutoNextScreenShot.Location.Y + frm.chkAutoNextScreenShot.Height + 3);
+            // frm.btnCopyBitmapsForWorkers.Location = new Point(intGrpIndentX, frm.btnNextScreenShot.Location.Y + frm.btnNextScreenShot.Height + 5);
 
+            #endregion
+
+            #region Bitmap Location Tools GroupBox
+
+            frm.grpBitmapLocationTools.Location=new Point(intXLocationLeft, frm.grpProgramControl.Location.Y + frm.grpProgramControl.Height + intGrpSpacingY);
+
+            // frm.chkClearRects.Location = new Point(intGrpIndentX, intGrpIndentY + 1);
+            frm.lblRectX.Location = new Point(intXLocationLeft, intGrpIndentY + 1);
+            frm.lblRectY.Location = new Point(intXLocationLeft + szeTextBox.Width + 5, frm.lblRectX.Location.Y);
             frm.txtRectX.Location = new Point(intXLocationLeft, frm.lblRectX.Location.Y + frm.lblRectX.Height + 2);
             frm.txtRectY.Location = new Point(intXLocationLeft + szeTextBox.Width + 5, frm.lblRectX.Location.Y + frm.lblRectX.Height + 2);
-
             frm.lblRectWidth.Location = new Point(intXLocationLeft, frm.txtRectX.Location.Y + frm.txtRectX.Height + 5);
             frm.lblRectHeight.Location = new Point(intXLocationLeft + szeTextBox.Width + 5, frm.txtRectX.Location.Y + frm.txtRectX.Height + 5);
-
             frm.txtRectWidth.Location = new Point(intXLocationLeft, frm.lblRectWidth.Location.Y + frm.lblRectWidth.Height + 2);
             frm.txtRectHeight.Location = new Point(intXLocationLeft + szeTextBox.Width + 5, frm.lblRectWidth.Location.Y + frm.lblRectWidth.Height + 2);
-
             frm.btnDrawRect.Location = new Point(intXLocationLeft, frm.txtRectWidth.Location.Y + frm.txtRectWidth.Height + 5);
-
             frm.btnDrawAllRects.Location = new Point(intXLocationLeft, frm.btnDrawRect.Location.Y + frm.btnDrawRect.Height + 5);
-
             frm.chkShowClickData.Location = new Point(intXLocationLeft, frm.btnDrawAllRects.Location.Y + frm.btnDrawAllRects.Height + 8);
-
             frm.lblMouseClickX.Location = new Point(intXLocationLeft, frm.chkShowClickData.Location.Y + frm.chkShowClickData.Height + 5);
             frm.lblMouseClickY.Location = new Point(intXLocationLeft, frm.lblMouseClickX.Location.Y + frm.lblMouseClickX.Height + 2);
             frm.lblMouseClickClr.Location = new Point(intXLocationLeft, frm.lblMouseClickY.Location.Y + frm.lblMouseClickY.Height + 2);
             frm.lblMouseClickBright.Location = new Point(intXLocationLeft, frm.lblMouseClickClr.Location.Y + frm.lblMouseClickClr.Height + 2);
 
-            frm.txtErrorMessages.Location = new Point(intXLocationLeft, frm.lblMouseClickBright.Location.Y + frm.lblMouseClickBright.Height + 6);
+            #endregion
 
-            // Right Column
+            #region Error Logging GroupBox
+
+            frm.grpErrorLogging.Location=new Point(frm.grpBitmapLocationTools.Location.X + frm.grpBitmapLocationTools.Width + intXLocationLeft, frm.grpBitmapLocationTools.Location.Y + frm.grpBitmapLocationTools.Height - frm.grpErrorLogging.Height);
+            frm.txtErrorMessages.Location = new Point(intGrpIndentX, intGrpIndentY);
+
+            #endregion
+
+            #endregion
+
+            #region Right Column
+
             frm.rtbPotDealerAction.Size = szeRtbDealerAction;
             frm.rtbStatus.Size = szeRtbStatus;
             frm.rtbBoard.Size = szeRtbBoard;
@@ -468,22 +667,33 @@ namespace BOL_Companion
 
             frm.rtbPotDealerAction.Location = new Point(intXLocationRight, 80);
             frm.rtbStatus.Location = new Point(intXLocationRight, frm.rtbPotDealerAction.Location.Y + frm.rtbPotDealerAction.Height + 8);
-            frm.rtbBoard.Location = new Point(intXLocationRight, frm.rtbStatus.Location.Y + frm.rtbStatus.Height + 8);
-            frm.dgvPlayers.Location = new Point(intXLocationRight - 85, frm.rtbBoard.Location.Y + frm.rtbBoard.Height + 8);
+            frm.rtbBoard.Location = new Point(intXLocationRight - intRtbWidthBoard + intRtbWidth, frm.rtbStatus.Location.Y + frm.rtbStatus.Height + 8);
+            frm.dgvPlayers.Location = new Point(intXLocationRight - intRtbWidthDgvPlayers + intRtbWidth, frm.rtbBoard.Location.Y + frm.rtbBoard.Height + 8);
 
-            // Timers Area
+            #endregion
+
+            #region Timers Area
+
             frm.rtbUiIdleTime.Size = szeRtbUiIdleTime;
             frm.rtbTotalProcessTime.Size = szeRtbTotalProcessTime;
             frm.rtbNewHandDetected.Size = szeRtbNewHandDetected;
             frm.dgvTimers.Size = szeDgvTimers;
 
-            frm.rtbUiIdleTime.Location = new Point(1208, 793);
-            frm.rtbTotalProcessTime.Location = new Point(1350, 793);
-            frm.rtbNewHandDetected.Location = new Point(1417, 770);
-            frm.dgvTimers.Location = new Point(960, 816);
+            frm.rtbUiIdleTime.Location = new Point(1213, 793);
+            frm.rtbTotalProcessTime.Location = new Point(1355, 793);
+            frm.rtbNewHandDetected.Location = new Point(1347, 770);
+            frm.dgvTimers.Location = new Point(965, 816);
 
             SetRtbDefaultText();
             SetDgvDefaultText();
+
+            #endregion
+
+            #region Active player hand picturebox
+
+            frm.picMyHand.Location = new Point(1497, 617);
+
+            #endregion
         }
 
         private void SetRtbDefaultText()

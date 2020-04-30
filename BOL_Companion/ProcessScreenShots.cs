@@ -12,27 +12,35 @@ namespace BOL_Companion
     class ProcessScreenShots
     {
         #region Varibale Definitions
-        private bool blnDisposeScreenShotResources, blnAvitarPresent, blnPlayerSittingOut;
-        private const int intDyPlayerInfo = 93;
-        private const int intHcStatusDx1 = 71;
-        private const int intHcStatusDx2 = 97;
-        private const int intHcStatusDy1 = 77;
-        private const int intHcStatusDy2 = 22;
-        private const int intHc1Dx = 69;
-        private const int intHc2Dx = 98;
-        private const int intCardDx = 25;
+        private bool blnDisposeScreenShotResources, blnAvitarPresent, blnPlayerSittingOut, blnBannerPresent;
+        private const int intDyPlayerInfo = 106;
+        private const int intHcStatusDx1 = 59;
+        private const int intHcStatusDx2 = 73;
+        private const int intHcStatusDy1 = 89;
+        private const int intHcStatusDy2 = 65;
+        private const int intHc1Dx = 57;
+        private const int intHc2Dx = 99;
+        private const int intHcDy = 6;
+        private const int intCardDx = 32;
         private const int intCardDy = 50;
         private int intIdentifier;
         private int[][,] intLocations;
+        private string strBmpSaveLocation;
+        private Point pntOpenSeatCheckPixel_1, pntOpenSeatCheckPixel_2, pntAvitarPresentCheckPixel_1, pntAvitarPresentCheckPixel_2;
+        private Point pntFirstHoldCardPresent_1, pntFirstHoldCardPresent_2, pntFirstHoldCardPresent_3, pntFirstHoldCardPresent_4;
+        private Point pntSecondHoldCardPresent_1, pntSecondHoldCardPresent_2, pntSecondHoldCardPresent_3, pntSecondHoldCardPresent_4;
+        private Point pntBannerPresentCheck, pntBoardCardSuitCheck_1, pntBoardCardSuitCheck_2, pntBoardCardSuitCheck_3;
+        private Point pntHc1SuitCheck_1, pntHc1SuitCheck_2, pntHc1SuitCheck_3, pntHc2SuitCheck_1, pntHc2SuitCheck_2, pntHc2SuitCheck_3;
         private Bitmap bmpScreenShot;
         private Graphics gfxScreenShot;
         private CardStringIntTranslator cdt;
 
         #endregion
 
-        public ProcessScreenShots(int intId, bool blnDisplayThread)
+        public ProcessScreenShots(int intId, string strBmpSaveLoc)
         {
             intIdentifier = intId;
+            strBmpSaveLocation = strBmpSaveLoc;
 
             InitializeVariables();
             InitializeArrays();
@@ -40,6 +48,28 @@ namespace BOL_Companion
 
         private void InitializeVariables()
         {
+            pntOpenSeatCheckPixel_1 = new Point(0, 0);
+            pntOpenSeatCheckPixel_2 = new Point(0, 0);
+            pntAvitarPresentCheckPixel_1 = new Point(0, 0);
+            pntAvitarPresentCheckPixel_2 = new Point(0, 0);
+            pntFirstHoldCardPresent_1 = new Point(0, 0);
+            pntFirstHoldCardPresent_2 = new Point(0, 0);
+            pntFirstHoldCardPresent_3 = new Point(0, 0);
+            pntFirstHoldCardPresent_4 = new Point(0, 0);
+            pntSecondHoldCardPresent_1 = new Point(0, 0);
+            pntSecondHoldCardPresent_2 = new Point(0, 0);
+            pntSecondHoldCardPresent_3 = new Point(0, 0);
+            pntSecondHoldCardPresent_4 = new Point(0, 0);
+            pntBannerPresentCheck = new Point(0, 0);
+            pntBoardCardSuitCheck_1 = new Point(0, 0);
+            pntBoardCardSuitCheck_2 = new Point(0, 0);
+            pntBoardCardSuitCheck_3 = new Point(0, 0);
+            pntHc1SuitCheck_1 = new Point(0, 0);
+            pntHc1SuitCheck_2 = new Point(0, 0);
+            pntHc1SuitCheck_3 = new Point(0, 0);
+            pntHc2SuitCheck_1 = new Point(0, 0);
+            pntHc2SuitCheck_2 = new Point(0, 0);
+            pntHc2SuitCheck_3 = new Point(0, 0);
             blnAvitarPresent = false;
             blnPlayerSittingOut = false;
             blnDisposeScreenShotResources = false;
@@ -53,8 +83,13 @@ namespace BOL_Companion
             bool blnOpenSeat;
             Color clrPixel1, clrPixel2;
 
-            clrPixel1 = bmpScreenShot.GetPixel(77, 26 + intDyPlayerInfo);
-            clrPixel2 = bmpScreenShot.GetPixel(78, 26 + intDyPlayerInfo);
+            pntOpenSeatCheckPixel_1.X = 84;
+            pntOpenSeatCheckPixel_1.Y = 30 + intDyPlayerInfo;
+            pntOpenSeatCheckPixel_2.X = 85;
+            pntOpenSeatCheckPixel_2.Y = 30 + intDyPlayerInfo;
+
+            clrPixel1 = bmpScreenShot.GetPixel(pntOpenSeatCheckPixel_1.X, pntOpenSeatCheckPixel_1.Y);
+            clrPixel2 = bmpScreenShot.GetPixel(pntOpenSeatCheckPixel_2.X, pntOpenSeatCheckPixel_2.Y);
 
             // The text "Open Seat" is shown on the line between where the player's name and chip count would be
             // so if there is text in that space in between it is an open seat.
@@ -84,11 +119,11 @@ namespace BOL_Companion
 
             if (!blnAvitarPresent)
             {
-                rctCropped = new Rectangle(30, intDyPlayerInfo, bmpScreenShot.Width - 60, 23);
+                rctCropped = new Rectangle(30, intDyPlayerInfo, bmpScreenShot.Width - 60, 26);
             }
             else
             {
-                rctCropped = new Rectangle(70, intDyPlayerInfo, bmpScreenShot.Width - 70, 23);
+                rctCropped = new Rectangle(70, intDyPlayerInfo, bmpScreenShot.Width - 70, 26);
             }
  
             bmpPlayerName = bmpScreenShot.Clone(rctCropped, bmpScreenShot.PixelFormat);
@@ -126,11 +161,11 @@ namespace BOL_Companion
 
                 if (!AvitarPresent())
                 {
-                    rctCropped = new Rectangle(30, 30 + intDyPlayerInfo, bmpScreenShot.Width - 60, 23);
+                    rctCropped = new Rectangle(30, 31 + intDyPlayerInfo, bmpScreenShot.Width - 60, 26);
                 }
                 else
                 {
-                    rctCropped = new Rectangle(70, 30 + intDyPlayerInfo, bmpScreenShot.Width - 70, 23);
+                    rctCropped = new Rectangle(70, 31 + intDyPlayerInfo, bmpScreenShot.Width - 70, 26);
                 }
 
                 bmpChipStack = bmpScreenShot.Clone(rctCropped, bmpScreenShot.PixelFormat);
@@ -150,8 +185,10 @@ namespace BOL_Companion
                     strChipStack = strChipStack.Substring(0, strChipStack.IndexOf("\n"));
                 }
 
+                // Remove ',' and characters that ',' might be misinterpreted as from the chip stack string
                 strChipStack = strChipStack.Replace(",", "");
                 strChipStack = strChipStack.Replace(".", "");
+                strChipStack = strChipStack.Replace(" ", "");
 
                 if (!int.TryParse(strChipStack, out intChipStack))
                 {
@@ -184,18 +221,27 @@ namespace BOL_Companion
             // 1 hold card shown
 
             // Firts hold card
-            clrPixel1 = bmpScreenShot.GetPixel(intHcStatusDx1, intHcStatusDy1);
-            clrPixel2 = bmpScreenShot.GetPixel(intHcStatusDx1 + 1, intHcStatusDy1);
-            clrPixel3 = bmpScreenShot.GetPixel(intHcStatusDx1 - 1, intHcStatusDy2);
-            clrPixel4 = bmpScreenShot.GetPixel(intHcStatusDx1, intHcStatusDy2);
+            pntFirstHoldCardPresent_1.X = intHcStatusDx1;
+            pntFirstHoldCardPresent_1.Y = intHcStatusDy1;
+            pntFirstHoldCardPresent_2.X = intHcStatusDx1 + 1;
+            pntFirstHoldCardPresent_2.Y = intHcStatusDy1;
+            pntFirstHoldCardPresent_3.X = intHcStatusDx2;
+            pntFirstHoldCardPresent_3.Y = intHcStatusDy2;
+            pntFirstHoldCardPresent_4.X = intHcStatusDx2;
+            pntFirstHoldCardPresent_4.Y = intHcStatusDy2 + 9;
+
+            clrPixel1 = bmpScreenShot.GetPixel(pntFirstHoldCardPresent_1.X, pntFirstHoldCardPresent_1.Y);
+            clrPixel2 = bmpScreenShot.GetPixel(pntFirstHoldCardPresent_2.X, pntFirstHoldCardPresent_2.Y);
+            clrPixel3 = bmpScreenShot.GetPixel(pntFirstHoldCardPresent_3.X, pntFirstHoldCardPresent_3.Y);
+            clrPixel4 = bmpScreenShot.GetPixel(pntFirstHoldCardPresent_4.X, pntFirstHoldCardPresent_4.Y);
 
             // Check for the white of the facedown card edge to check for hold card present but not shown
             if ((clrPixel1.R > 220 && clrPixel1.G > 220 && clrPixel1.B > 220) || (clrPixel2.R > 220 && clrPixel2.G > 220 && clrPixel2.B > 220))
             {
                 intHc1Status = 0;
             }
-            // Check for corner white area or brighness of a card that is present and shown
-            else if (clrPixel3.R > 100 || clrPixel4.R > 100 || clrPixel3.B > 100 || clrPixel4.B > 100 || (clrPixel3.R > 3 && clrPixel3.G > 100) || (clrPixel4.R > 3 && clrPixel4.G > 100))
+            // Check for the white of the card suit symbol (clubs, diamonds, hearts, spades) to check if the card is face up and being shown
+            else if ((clrPixel3.R > 220 && clrPixel3.G > 220 && clrPixel3.B > 220) || (clrPixel4.R > 220 && clrPixel4.G > 220 && clrPixel4.B > 220))
             {
                 intHc1Status = 1;
             }
@@ -205,18 +251,27 @@ namespace BOL_Companion
             }
 
             // Second hold card
-            clrPixel1 = bmpScreenShot.GetPixel(intHcStatusDx2, intHcStatusDy1);
-            clrPixel2 = bmpScreenShot.GetPixel(intHcStatusDx2 + 1, intHcStatusDy1);
-            clrPixel3 = bmpScreenShot.GetPixel(intHcStatusDx2 + 3, intHcStatusDy2);
-            clrPixel4 = bmpScreenShot.GetPixel(intHcStatusDx2 + 4, intHcStatusDy2);
+            pntSecondHoldCardPresent_1.X = pntFirstHoldCardPresent_1.X + intHc2Dx - intHc1Dx - 7;
+            pntSecondHoldCardPresent_1.Y = pntFirstHoldCardPresent_1.Y;
+            pntSecondHoldCardPresent_2.X = pntFirstHoldCardPresent_2.X + intHc2Dx - intHc1Dx - 7;
+            pntSecondHoldCardPresent_2.Y = pntFirstHoldCardPresent_2.Y;
+            pntSecondHoldCardPresent_3.X = pntFirstHoldCardPresent_3.X + intHc2Dx - intHc1Dx;
+            pntSecondHoldCardPresent_3.Y = pntFirstHoldCardPresent_3.Y;
+            pntSecondHoldCardPresent_4.X = pntFirstHoldCardPresent_4.X + intHc2Dx - intHc1Dx;
+            pntSecondHoldCardPresent_4.Y = pntFirstHoldCardPresent_4.Y;
 
-            // Check for the white of the facedown card edge to check for hold card present but not shown
+            clrPixel1 = bmpScreenShot.GetPixel(pntSecondHoldCardPresent_1.X, pntSecondHoldCardPresent_1.Y);
+            clrPixel2 = bmpScreenShot.GetPixel(pntSecondHoldCardPresent_2.X, pntSecondHoldCardPresent_2.Y);
+            clrPixel3 = bmpScreenShot.GetPixel(pntSecondHoldCardPresent_3.X, pntSecondHoldCardPresent_3.Y);
+            clrPixel4 = bmpScreenShot.GetPixel(pntSecondHoldCardPresent_4.X, pntSecondHoldCardPresent_4.Y);
+
+            // Check for the white edge of a facedown card to check for hold card present but not shown
             if ((clrPixel1.R > 220 && clrPixel1.G > 220 && clrPixel1.B > 220) || (clrPixel2.R > 220 && clrPixel2.G > 220 && clrPixel2.B > 220))
             {
                 intHc2Status = 0;
             }
-            // Check for corner white area or brighness of a card that is present
-            else if (clrPixel3.R > 100 || clrPixel4.R > 100 || clrPixel3.B > 100 || clrPixel4.B > 100 || (clrPixel3.R > 3 && clrPixel3.G > 100) || (clrPixel4.R > 3 && clrPixel4.G > 100))
+            // Check for the white of the card suit symbol (clubs, diamonds, hearts, spades) to check if the card is face up and being shown
+            else if ((clrPixel3.R > 220 && clrPixel3.G > 220 && clrPixel3.B > 220) || (clrPixel4.R > 220 && clrPixel4.G > 220 && clrPixel4.B > 220))
             {
                 intHc2Status = 1;
             }
@@ -256,18 +311,32 @@ namespace BOL_Companion
             Color clrPix1, clrPix2, clrPix3;
 
             intHc = -1;
-            
+
+            pntHc1SuitCheck_1.X = intHc1Dx + intCardDx - 3;
+            pntHc1SuitCheck_1.Y = intHcDy;
+            pntHc1SuitCheck_2.X = intHc1Dx + intCardDx - 2;
+            pntHc1SuitCheck_2.Y = intHcDy;
+            pntHc1SuitCheck_3.X = intHc1Dx + intCardDx - 1;
+            pntHc1SuitCheck_3.Y = intHcDy;
+
+            pntHc2SuitCheck_1.X = intHc2Dx + intCardDx - 3;
+            pntHc2SuitCheck_1.Y = pntHc1SuitCheck_1.Y;
+            pntHc2SuitCheck_2.X = intHc2Dx + intCardDx - 2;
+            pntHc2SuitCheck_2.Y = pntHc1SuitCheck_2.Y;
+            pntHc2SuitCheck_3.X = intHc2Dx + intCardDx - 1;
+            pntHc2SuitCheck_3.Y = pntHc1SuitCheck_3.Y;
+
             if (blnHc1)
             {
-                clrPix1 = bmpScreenShot.GetPixel(intHc1Dx + 1, 35);
-                clrPix2 = bmpScreenShot.GetPixel(intHc1Dx + 0, 35);
-                clrPix3 = bmpScreenShot.GetPixel(intHc1Dx + 2, 35);
+                clrPix1 = bmpScreenShot.GetPixel(pntHc1SuitCheck_1.X, pntHc1SuitCheck_1.Y);
+                clrPix2 = bmpScreenShot.GetPixel(pntHc1SuitCheck_2.X, pntHc1SuitCheck_2.Y);
+                clrPix3 = bmpScreenShot.GetPixel(pntHc1SuitCheck_3.X, pntHc1SuitCheck_3.Y);
             }
             else
             {
-                clrPix1 = bmpScreenShot.GetPixel(intHc2Dx + 1, 35);
-                clrPix2 = bmpScreenShot.GetPixel(intHc2Dx + 0, 35);
-                clrPix3 = bmpScreenShot.GetPixel(intHc2Dx + 2, 35);
+                clrPix1 = bmpScreenShot.GetPixel(pntHc2SuitCheck_1.X, pntHc2SuitCheck_1.Y);
+                clrPix2 = bmpScreenShot.GetPixel(pntHc2SuitCheck_2.X, pntHc2SuitCheck_2.Y);
+                clrPix3 = bmpScreenShot.GetPixel(pntHc2SuitCheck_3.X, pntHc2SuitCheck_3.Y);
             }
 
             intHcSuit = GetCardSuit(clrPix1, clrPix2, clrPix3);
@@ -277,20 +346,25 @@ namespace BOL_Companion
             {
                 string strHc, strHcNumber;
                 var varOcr = OcrApi.Create();
-                Bitmap bmpHc;
-                Rectangle rctCropped;
+                Bitmap bmpHc;                
 
                 if (blnHc1)
                 {
-                    bmpHc = bmpScreenShot.Clone(new Rectangle(intHc1Dx, 0, intCardDx, intCardDy), bmpScreenShot.PixelFormat);
+                    bmpHc = bmpScreenShot.Clone(new Rectangle(intHc1Dx, intHcDy, intCardDx, intCardDy), bmpScreenShot.PixelFormat);
                     strHcNumber = "Hc#1";
                 }
                 else
                 {
-                    bmpHc = bmpScreenShot.Clone(new Rectangle(intHc2Dx, 0, intCardDx, intCardDy), bmpScreenShot.PixelFormat);
+                    bmpHc = bmpScreenShot.Clone(new Rectangle(intHc2Dx, intHcDy, intCardDx, intCardDy), bmpScreenShot.PixelFormat);
                     strHcNumber = "Hc#2";
                 }
 
+                // In the most recent update of Bet Online they don't highlight the winning combination of cards by raising them like they used
+                // to so we never need to change the rectangle we send to the "get text from image" tool which is why i have commented out the 
+                // code below. 2020.04.04
+                /*
+                Rectangle rctCropped;
+                
                 if (CardRaisedHc(blnHc1))
                 {
                     rctCropped = new Rectangle(0, 0, bmpHc.Width, bmpHc.Height - 12);
@@ -299,8 +373,9 @@ namespace BOL_Companion
                 {
                     rctCropped = new Rectangle(0, 12, bmpHc.Width, bmpHc.Height - 12);
                 }
+                */
 
-                bmpHc = bmpHc.Clone(rctCropped, bmpHc.PixelFormat);
+                bmpHc = bmpHc.Clone(new Rectangle(0, 0, bmpHc.Width, bmpHc.Height), bmpHc.PixelFormat);
                 ColorSimplifyCard(bmpHc);
 
                 varOcr.Init(Patagames.Ocr.Enums.Languages.English);
@@ -312,11 +387,11 @@ namespace BOL_Companion
                     strHc = strHc.Substring(0, strHc.IndexOf("\n"));
                 }
 
-                if (strHc == "E")
+                if (strHc == "E" || strHc == "B" || strHc == "b")
                 {
                     strHc = "6";
                 }
-                else if (strHc == "l]")
+                else if (strHc == "l]" || strHc == "[l")
                 {
                     strHc = "Q";
                 }
@@ -339,9 +414,16 @@ namespace BOL_Companion
 
             intBoardCard = -1;
 
-            clrPix1 = bmpScreenShot.GetPixel(1, 35);
-            clrPix2 = bmpScreenShot.GetPixel(0, 35);
-            clrPix3 = bmpScreenShot.GetPixel(2, 35);
+            pntBoardCardSuitCheck_1.X = intCardDx - 3;
+            pntBoardCardSuitCheck_1.Y = 0;
+            pntBoardCardSuitCheck_2.X = intCardDx - 2;
+            pntBoardCardSuitCheck_2.Y = 0;
+            pntBoardCardSuitCheck_3.X = intCardDx - 1;
+            pntBoardCardSuitCheck_3.Y = 0;
+
+            clrPix1 = bmpScreenShot.GetPixel(pntBoardCardSuitCheck_1.X, pntBoardCardSuitCheck_1.Y);
+            clrPix2 = bmpScreenShot.GetPixel(pntBoardCardSuitCheck_2.X, pntBoardCardSuitCheck_2.Y);
+            clrPix3 = bmpScreenShot.GetPixel(pntBoardCardSuitCheck_3.X, pntBoardCardSuitCheck_3.Y);
 
             intBoardCardSuit = GetCardSuit(clrPix1, clrPix2, clrPix3);
 
@@ -350,6 +432,11 @@ namespace BOL_Companion
             {
                 string strBoardCard;
                 var varOcr = OcrApi.Create();
+
+                // In the most recent update of Bet Online they don't highlight the winning combination of cards by raising them like they used
+                // to so we never need to change the rectangle we send to the "get text from image" tool which is why i have commented out the 
+                // code below. 2020.04.04
+                /*
                 Rectangle rctCropped;
 
                 if (CardRaised(bmpScreenShot))
@@ -360,8 +447,10 @@ namespace BOL_Companion
                 {
                     rctCropped = new Rectangle(0, 12, bmpScreenShot.Width, bmpScreenShot.Height - 12);
                 }
-
                 bmpScreenShot = bmpScreenShot.Clone(rctCropped, bmpScreenShot.PixelFormat);
+                */
+
+                bmpScreenShot = bmpScreenShot.Clone(new Rectangle(0, 0, bmpScreenShot.Width, bmpScreenShot.Height), bmpScreenShot.PixelFormat);
                 ColorSimplifyCard(bmpScreenShot);
 
                 varOcr.Init(Patagames.Ocr.Enums.Languages.English);
@@ -377,7 +466,15 @@ namespace BOL_Companion
                 {
                     strBoardCard = "6";
                 }
+                else if (strBoardCard == "B")
+                {
+                    strBoardCard = "6";
+                }
                 else if (strBoardCard == "l]")
+                {
+                    strBoardCard = "Q";
+                }
+                else if (strBoardCard == "[l")
                 {
                     strBoardCard = "Q";
                 }
@@ -406,6 +503,7 @@ namespace BOL_Companion
             strPot = strPot.Replace(",", "");
             strPot = strPot.Replace(".", "");
             strPot = strPot.Replace("D", "0");
+            strPot = strPot.Replace("Z", "2");
             strPot = strPot.Replace("o", "0");
             strPot = strPot.Replace("O", "0");
 
@@ -530,28 +628,32 @@ namespace BOL_Companion
             return bmpScreenShot;
         }
 
+        public void ChangeBitmapSaveLocation(string strNewSaveLocation)
+        {
+            strBmpSaveLocation = strNewSaveLocation;
+        }
+
         public void SaveBitmap()
         {
-            bmpScreenShot.Save("E:\\Documents\\Visual Studio 2017\\Projects\\Poker\\Bet Online_Other\\Saved Bitmaps\\" +
-                DateTime.Now.ToString("yyyy.MM.dd_") + intIdentifier.ToString("D2") + ".bmp", System.Drawing.Imaging.ImageFormat.Bmp);
+            bmpScreenShot.Save(strBmpSaveLocation + "\\" + DateTime.Now.ToString("yyyy.MM.dd_") + intIdentifier.ToString("D2") + 
+                ".bmp", System.Drawing.Imaging.ImageFormat.Bmp);
         }
 
         public void SaveBitmapPlayer(Bitmap bmp)
         {
-            bmp.Save("E:\\Documents\\Visual Studio 2017\\Projects\\Poker\\Bet Online_Other\\Saved Bitmaps\\" +
-                DateTime.Now.ToString("yyyy.MM.dd_") + intIdentifier.ToString("D2") + " Player Name" + ".bmp", System.Drawing.Imaging.ImageFormat.Bmp);
+            bmp.Save(strBmpSaveLocation + "\\" + DateTime.Now.ToString("yyyy.MM.dd_") + intIdentifier.ToString("D2") + " Player Name" + 
+                ".bmp", System.Drawing.Imaging.ImageFormat.Bmp);
         }
 
         public void SaveBitmapChips(Bitmap bmp)
         {
-            bmp.Save("E:\\Documents\\Visual Studio 2017\\Projects\\Poker\\Bet Online_Other\\Saved Bitmaps\\" +
-                DateTime.Now.ToString("yyyy.MM.dd_") + intIdentifier.ToString("D2") + " Player Chips" + ".bmp", System.Drawing.Imaging.ImageFormat.Bmp);
+            bmp.Save(strBmpSaveLocation + "\\" + DateTime.Now.ToString("yyyy.MM.dd_") + intIdentifier.ToString("D2") + " Player Chips" + 
+                ".bmp", System.Drawing.Imaging.ImageFormat.Bmp);
         }
 
         private void SaveBitmapHc(Bitmap bmp, string strHc)
         {
-            bmp.Save("E:\\Documents\\Visual Studio 2017\\Projects\\Poker\\Bet Online_Other\\Saved Bitmaps\\" +
-                DateTime.Now.ToString("yyyy.MM.dd_") + intIdentifier.ToString("D2") + "_" + strHc + 
+            bmp.Save(strBmpSaveLocation + "\\" + DateTime.Now.ToString("yyyy.MM.dd_") + intIdentifier.ToString("D2") + "_" + strHc + 
                 ".bmp", System.Drawing.Imaging.ImageFormat.Bmp);
         }
 
@@ -568,6 +670,205 @@ namespace BOL_Companion
                 {
                     rctToCopy = new Rectangle(0, 0, 0, 0);
                 }
+            }
+            else
+            {
+                rctToCopy = new Rectangle(0, 0, 0, 0);
+            }
+
+            return rctToCopy;
+        }
+
+        public Rectangle Hc1FaceDownCheckRect(int intId)
+        {
+            Rectangle rctToCopy;
+
+            if (intId > -1 && intId < 10)
+            {
+                rctToCopy = new Rectangle(intLocations[intId][0, 0] + pntFirstHoldCardPresent_1.X, intLocations[intId][0, 1] + pntFirstHoldCardPresent_1.Y,
+                    pntFirstHoldCardPresent_2.X - pntFirstHoldCardPresent_1.X, pntFirstHoldCardPresent_2.Y - pntFirstHoldCardPresent_1.Y);
+            }
+            else
+            {
+                rctToCopy = new Rectangle(0, 0, 0, 0);
+            }
+
+            return rctToCopy;
+        }
+
+        public Rectangle Hc1FaceUpCheckRect_1(int intId)
+        {
+            Rectangle rctToCopy;
+
+            if (intId > -1 && intId < 10)
+            {
+                rctToCopy = new Rectangle(intLocations[intId][0, 0] + pntFirstHoldCardPresent_3.X, intLocations[intId][0, 1] + pntFirstHoldCardPresent_3.Y, 0, 0);
+            }
+            else
+            {
+                rctToCopy = new Rectangle(0, 0, 0, 0);
+            }
+
+            return rctToCopy;
+        }
+
+        public Rectangle Hc1FaceUpCheckRect_2(int intId)
+        {
+            Rectangle rctToCopy;
+
+            if (intId > -1 && intId < 10)
+            {
+                rctToCopy = new Rectangle(intLocations[intId][0, 0] + pntFirstHoldCardPresent_4.X, intLocations[intId][0, 1] + pntFirstHoldCardPresent_4.Y, 0, 0);
+            }
+            else
+            {
+                rctToCopy = new Rectangle(0, 0, 0, 0);
+            }
+
+            return rctToCopy;
+        }
+
+        public Rectangle Hc2FaceDownCheckRect(int intId)
+        {
+            Rectangle rctToCopy;
+
+            if (intId > -1 && intId < 10)
+            {
+                rctToCopy = new Rectangle(intLocations[intId][0, 0] + pntSecondHoldCardPresent_1.X, intLocations[intId][0, 1] + pntSecondHoldCardPresent_1.Y,
+                    pntSecondHoldCardPresent_2.X - pntSecondHoldCardPresent_1.X, pntSecondHoldCardPresent_2.Y - pntSecondHoldCardPresent_1.Y);
+            }
+            else
+            {
+                rctToCopy = new Rectangle(0, 0, 0, 0);
+            }
+
+            return rctToCopy;
+        }
+
+        public Rectangle Hc2FaceUpCheckRect_1(int intId)
+        {
+            Rectangle rctToCopy;
+
+            if (intId > -1 && intId < 10)
+            {
+                rctToCopy = new Rectangle(intLocations[intId][0, 0] + pntSecondHoldCardPresent_3.X, intLocations[intId][0, 1] + pntSecondHoldCardPresent_3.Y, 0, 0);
+            }
+            else
+            {
+                rctToCopy = new Rectangle(0, 0, 0, 0);
+            }
+
+            return rctToCopy;
+        }
+
+        public Rectangle Hc2FaceUpCheckRect_2(int intId)
+        {
+            Rectangle rctToCopy;
+
+            if (intId > -1 && intId < 10)
+            {
+                rctToCopy = new Rectangle(intLocations[intId][0, 0] + pntSecondHoldCardPresent_4.X, intLocations[intId][0, 1] + pntSecondHoldCardPresent_4.Y, 0, 0);
+            }
+            else
+            {
+                rctToCopy = new Rectangle(0, 0, 0, 0);
+            }
+
+            return rctToCopy;
+        }
+
+        public Rectangle AvitarPresentCheckRect(int intId)
+        {
+            Rectangle rctToCopy;
+
+            if (intId > -1 && intId < 10)
+            {
+                rctToCopy = new Rectangle(intLocations[intId][0, 0] + pntAvitarPresentCheckPixel_1.X, intLocations[intId][0, 1] + pntAvitarPresentCheckPixel_1.Y,
+                    pntAvitarPresentCheckPixel_2.X - pntAvitarPresentCheckPixel_1.X, pntAvitarPresentCheckPixel_2.Y - pntAvitarPresentCheckPixel_1.Y);
+            }
+            else
+            {
+                rctToCopy = new Rectangle(0, 0, 0, 0);
+            }
+
+            return rctToCopy;
+        }
+
+        public Rectangle OpenSeatCheckRect(int intId)
+        {
+            Rectangle rctToCopy;
+
+            if (intId > -1 && intId < 10)
+            {
+                rctToCopy = new Rectangle(intLocations[intId][0, 0] + pntOpenSeatCheckPixel_1.X, intLocations[intId][0, 1] + pntOpenSeatCheckPixel_1.Y,
+                    pntOpenSeatCheckPixel_2.X - pntOpenSeatCheckPixel_1.X, pntOpenSeatCheckPixel_2.Y - pntOpenSeatCheckPixel_1.Y);
+            }
+            else
+            {
+                rctToCopy = new Rectangle(0, 0, 0, 0);
+            }
+
+            return rctToCopy;
+        }
+
+        public Rectangle BannerPresentCheckRect(int intId)
+        {
+            Rectangle rctToCopy;
+
+            if (intId > -1 && intId < 10)
+            {
+                rctToCopy = new Rectangle(intLocations[intId][0, 0] + pntBannerPresentCheck.X, intLocations[intId][0, 1] + pntBannerPresentCheck.Y, 0, 0);
+            }
+            else
+            {
+                rctToCopy = new Rectangle(0, 0, 0, 0);
+            }
+
+            return rctToCopy;
+        }
+
+        public Rectangle BoardCardSuitCheckRect(int intId)
+        {
+            Rectangle rctToCopy;
+
+            if (intId > 9 && intId < 15)
+            {
+                rctToCopy = new Rectangle(intLocations[intId][0, 0] + pntBoardCardSuitCheck_1.X, intLocations[intId][0, 1] + pntBoardCardSuitCheck_1.Y, 
+                    pntBoardCardSuitCheck_3.X - pntBoardCardSuitCheck_1.X, pntBoardCardSuitCheck_3.Y - pntBoardCardSuitCheck_1.Y);
+            }
+            else
+            {
+                rctToCopy = new Rectangle(0, 0, 0, 0);
+            }
+
+            return rctToCopy;
+        }
+
+        public Rectangle Hc1SuitCheckRect(int intId)
+        {
+            Rectangle rctToCopy;
+
+            if (intId > -1 && intId < 10)
+            {
+                rctToCopy = new Rectangle(intLocations[intId][1, 0] + pntHc1SuitCheck_1.X -intHc1Dx, intLocations[intId][1, 1] + pntHc1SuitCheck_1.Y - intHcDy,
+                    pntHc1SuitCheck_3.X - pntHc1SuitCheck_1.X, pntHc1SuitCheck_3.Y - pntHc1SuitCheck_1.Y);
+            }
+            else
+            {
+                rctToCopy = new Rectangle(0, 0, 0, 0);
+            }
+
+            return rctToCopy;
+        }
+
+        public Rectangle Hc2SuitCheckRect(int intId)
+        {
+            Rectangle rctToCopy;
+
+            if (intId > -1 && intId < 10)
+            {
+                rctToCopy = new Rectangle(intLocations[intId][2, 0] + pntHc2SuitCheck_1.X - intHc2Dx, intLocations[intId][2, 1] + pntHc2SuitCheck_1.Y - intHcDy,
+                    pntHc2SuitCheck_3.X - pntHc2SuitCheck_1.X, pntHc2SuitCheck_3.Y - pntHc2SuitCheck_1.Y);
             }
             else
             {
@@ -596,30 +897,29 @@ namespace BOL_Companion
         public void DrawHoldCardCheckRects(int intDealer)
         {
             int intX, intY;
-            Pen penBlue, penRed, penPen;
+            Pen penYellow, penPurple, penPen;
 
-            penBlue = new Pen(Color.Blue, 1);
-            penRed = new Pen(Color.Red, 1);
+            penYellow = new Pen(Color.Yellow, 1);
+            penPurple = new Pen(Color.Purple, 1);
 
             for (int i = 0; i < 9; i++)
             {
                 if (i == intDealer)
                 {
-                    penPen = penRed;
+                    penPen = penYellow;
                 }
                 else
                 {
-                    penPen = penBlue;
+                    penPen = penPurple;
                 }
 
-                // Firts hold card (no need to check for a second hold card, if the first hold card is present the dealer has cards)
                 intX = BitmapRect(i, 0).Left + intHcStatusDx1 - intLocations[16][0, 0];
                 intY = BitmapRect(i, 0).Top + intHcStatusDy1 - intLocations[16][0, 1];
-                gfxScreenShot.DrawRectangle(penBlue, intX - 1, intY - 1, 3, 2);
+                gfxScreenShot.DrawRectangle(penYellow, intX - 1, intY - 1, 3, 2);
 
                 intX = BitmapRect(i, 0).Left + intHcStatusDx1 - 1 - intLocations[16][0, 0];
                 intY = BitmapRect(i, 0).Top + intHcStatusDy2 - intLocations[16][0, 1];
-                gfxScreenShot.DrawRectangle(penBlue, intX - 1, intY - 1, 3, 2);
+                gfxScreenShot.DrawRectangle(penPurple, intX - 1, intY - 1, 3, 2);
             }
         }
 
@@ -662,8 +962,13 @@ namespace BOL_Companion
         {
             Color clrPixel1, clrPixel2;
 
-            clrPixel1 = bmpScreenShot.GetPixel(67, 26 + intDyPlayerInfo);
-            clrPixel2 = bmpScreenShot.GetPixel(68, 26 + intDyPlayerInfo);
+            pntAvitarPresentCheckPixel_1.X = 72;
+            pntAvitarPresentCheckPixel_1.Y = 27 + intDyPlayerInfo;
+            pntAvitarPresentCheckPixel_2.X = 73;
+            pntAvitarPresentCheckPixel_2.Y = 27 + intDyPlayerInfo;
+
+            clrPixel1 = bmpScreenShot.GetPixel(pntAvitarPresentCheckPixel_1.X, pntAvitarPresentCheckPixel_1.Y);
+            clrPixel2 = bmpScreenShot.GetPixel(pntAvitarPresentCheckPixel_2.X, pntAvitarPresentCheckPixel_2.Y);
 
             if (clrPixel1.R > 75 || clrPixel2.R > 75)
             {
@@ -687,35 +992,44 @@ namespace BOL_Companion
             intY = bmp.Height / 2;
             blnPlayerSittingOut = true;
 
-            for (int i = intXStart; i < intXEnd; i++)
+            if (!blnBannerPresent)
             {
-                clrPixel = bmp.GetPixel(i, intY);
-
-                if (clrPixel.R > 250 && clrPixel.R == clrPixel.G && clrPixel.R == clrPixel.B)
+                for (int i = intXStart; i < intXEnd; i++)
                 {
-                    blnPlayerSittingOut = false;
-                    i = bmp.Width;
+                    clrPixel = bmp.GetPixel(i, intY);
+
+                    if (clrPixel.R > 250 && clrPixel.R == clrPixel.G && clrPixel.R == clrPixel.B)
+                    {
+                        blnPlayerSittingOut = false;
+                        i = bmp.Width;
+                    }
                 }
+            }
+            else
+            {
+                blnPlayerSittingOut = false;
             }
         }
 
         private bool BannerPresent()
         {
-            bool blnBanner;
             Color clrPixel;
 
-            clrPixel = bmpScreenShot.GetPixel(bmpScreenShot.Width / 2, bmpScreenShot.Height - 1);
+            pntBannerPresentCheck.X = bmpScreenShot.Width / 2;
+            pntBannerPresentCheck.Y = bmpScreenShot.Height - 2;
+
+            clrPixel = bmpScreenShot.GetPixel(pntBannerPresentCheck.X, pntBannerPresentCheck.Y);
 
             if (clrPixel.R > 150 && clrPixel.G > 150 && clrPixel.B > 150)
             {
-                blnBanner = true;
+                blnBannerPresent = true;
             }
             else
             {
-                blnBanner = false;
+                blnBannerPresent = false;
             }
 
-            return blnBanner;
+            return blnBannerPresent;
         }
 
         private int GetCardSuit(Color clrPixel1, Color clrPixel2, Color clrPixel3)
@@ -725,19 +1039,19 @@ namespace BOL_Companion
             // intSuit
             // -1 = not present, 1 = clubs, 2 = diamonds, 3 = hearts, 4 = spades
 
-            if (clrPixel1.R == clrPixel1.G && clrPixel1.G == clrPixel1.B)
+            if (clrPixel2.R == clrPixel2.G && clrPixel2.G == clrPixel2.B)
             {
                 intSuit = 4;
             }
-            else if (clrPixel1.R > clrPixel1.G && clrPixel1.R > clrPixel1.B)
+            else if (clrPixel2.R > clrPixel2.G && clrPixel2.R > clrPixel2.B)
             {
                 intSuit = 3;
             }
-            else if (clrPixel1.B > clrPixel1.R && clrPixel1.B > clrPixel1.G)
+            else if (clrPixel2.B > clrPixel2.R && clrPixel2.B > clrPixel2.G)
             {
                 intSuit = 2;
             }
-            else if (clrPixel1.G > clrPixel1.R && clrPixel1.G > clrPixel1.B)
+            else if (clrPixel2.G > clrPixel2.R && clrPixel2.G > clrPixel2.B)
             {
                 if (clrPixel1.R > 20 || clrPixel2.R > 20 || clrPixel3.R > 20)
                 {
@@ -936,17 +1250,17 @@ namespace BOL_Companion
         #endregion
 
         #region Locations Arrays
+        // These arrays define where to look for the data (chip stacks, hold cards, action player, dealer, board cards etc.)
 
         private void InitializeIntLocations(bool bln9Players)
         {
-            int intPlayerDx, intPlayerDy, intActionBarDx, intActionBarDy, intHcDy, intBoardDx, intPotDx, intPotDy;
+            int intPlayerDx, intPlayerDy, intActionBarDx, intActionBarDy, intBoardDx, intPotDx, intPotDy;
 
-            intPlayerDx = 245;
-            intPlayerDy = 155;
-            intActionBarDx = -5;
-            intActionBarDy = 175;
-            intHcDy = 0;
-            intBoardDx = 86;
+            intPlayerDx = 258;
+            intPlayerDy = 171;
+            intActionBarDx = -4;
+            intActionBarDy = 192;
+            intBoardDx = 117;
             intPotDx = 123;
             intPotDy = 19;
 
@@ -968,43 +1282,43 @@ namespace BOL_Companion
             // Boar Card 1 (Flop 1): x1, y1, x2, y2
             intLocations[10] = new int[1, 4]
             {
-                {749, 368, 0, 0}
+                {673, 348, 0, 0}
             };
 
             // Boar Card 2 (Flop 2): x1, y1, x2, y2
             intLocations[11] = new int[1, 4]
             {
-                {0, 368, 0, 0}
+                {0, 348, 0, 0}
             };
 
             // Boar Card 3 (Flop 3): x1, y1, x2, y2
             intLocations[12] = new int[1, 4]
             {
-                {0, 368, 0, 0}
+                {0, 348, 0, 0}
             };
 
             // Boar Card 4 (Turn): x1, y1, x2, y2
             intLocations[13] = new int[1, 4]
             {
-                {0, 368, 0, 0}
+                {0, 348, 0, 0}
             };
 
             // Boar Card 5 (River): x1, y1, x2, y2
             intLocations[14] = new int[1, 4]
             {
-                {0, 368, 0, 0}
+                {0, 348, 0, 0}
             };
 
             // Pot: x1, y1, x2, y2
             intLocations[15] = new int[1, 4]
             {
-                {902, 289, 0, 0}
+                {899, 269, 0, 0}
             };
 
-            // Area of interest (everything needed to collect game data)
+            // Area of interest (everything needed to collect game data): x1, y1, width, height
             intLocations[16] = new int[1, 4]
             {
-                {279, 81, 1182, 723}
+                {251, 41, 1215, 763}
             };
 
             #endregion
@@ -1050,99 +1364,99 @@ namespace BOL_Companion
 
         private void PlayerLocations9Players()
         {
-            // intLocations[1, -] = Player info (name and chipstack) (x, y, width, height)
-            // intLocations[1, -] = Hold Card 1 info (x1, y1, width, height)
-            // intLocations[1, -] = Hold Card 2 info (x2, y2, width, height)
-            // intLocations[1, -] = action bar and dealer chip check locations (x_Action, y_Action, x_DealerChip, y_DealerChip)
+            // intLocations[-][0, -] = Player info (name and chipstack) (x, y, width, height)
+            // intLocations[-][1, -] = Hold Card 1 info (x1, y1, width, height)
+            // intLocations[-][2, -] = Hold Card 2 info (x2, y2, width, height)
+            // intLocations[-][3, -] = action bar and dealer chip check locations (x_Action, y_Action, x_DealerChip, y_DealerChip)
 
             // Player 1: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
             // and x1, y1 for action bar and dealer chip
             intLocations[0] = new int[4, 4]
             {
-                {317, 194, 0, 0},
+                {288, 161, 0, 0},
                 {0, 0, 0, 0},
                 {0, 0, 0, 0},
-                {0, 0, 597, 317}
+                {0, 0, 580, 298}
             };
 
             // Player 2: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
             // and x1, y1 for action bar and dealer chip
             intLocations[1] = new int[4, 4]
             {
-                {638, 69, 0, 0},
+                {621, 31, 0, 0},
                 {0, 0, 0, 0},
                 {0, 0, 0, 0},
-                {0, 0, 681, 269}
+                {0, 0, 669, 248}
             };
 
             // Player 3: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
             // and x1, y1 for action bar and dealer chip
             intLocations[2] = new int[4, 4]
             {
-                {1036, 69, 0, 0},
+                {1037, 31, 0, 0},
                 {0, 0, 0, 0},
                 {0, 0, 0, 0},
-                {0, 0, 1238, 269}
+                {0, 0, 1251, 248}
             };
 
             // Player 4: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
             // and x1, y1 for action bar and dealer chip
             intLocations[3] = new int[4, 4]
             {
-                {1356, 194, 0, 0},
+                {1370, 161, 0, 0},
                 {0, 0, 0, 0},
                 {0, 0, 0, 0},
-                {0, 0, 1323, 317}
+                {0, 0, 1339, 298}
             };
 
             // Player 5: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
             // and x1, y1 for action bar and dealer chip
             intLocations[4] = new int[4, 4]
             {
-                {1387, 393, 0, 0},
+                {1403, 369, 0, 0},
                 {0, 0, 0, 0},
                 {0, 0, 0, 0},
-                {0, 0, 1392, 463}
+                {0, 0, 1411, 450}
             };
 
             // Player 6: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
             // and x1, y1 for action bar and dealer chip
             intLocations[5] = new int[4, 4]
             {
-                {1157, 585, 0, 0},
+                {1163, 569, 0, 0},
                 {0, 0, 0, 0},
                 {0, 0, 0, 0},
-                {0, 0, 1126, 679}
+                {0, 0, 1133, 676}
             };
 
             // Player 7: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
             // and x1, y1 for action bar and dealer chip
             intLocations[6] = new int[4, 4]
             {
-                {837, 625, 0, 0},
+                {829, 611, 0, 0},
                 {0, 0, 0, 0},
                 {0, 0, 0, 0},
-                {0, 0, 842, 688}
+                {0, 0, 837, 685}
             };
 
             // Player 8: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
             // and x1, y1 for action bar and dealer chip
             intLocations[7] = new int[4, 4]
             {
-                {516, 585, 0, 0},
+                {495, 569, 0, 0},
                 {0, 0, 0, 0},
                 {0, 0, 0, 0},
-                {0, 0, 759, 650}
+                {0, 0, 751, 646}
             };
 
             // Player 9: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
             // and x1, y1 for action bar and dealer chip
             intLocations[8] = new int[4, 4]
             {
-                {286, 393, 0, 0},
+                {255, 369, 0, 0},
                 {0, 0, 0, 0},
                 {0, 0, 0, 0},
-                {0, 0, 527, 463}
+                {0, 0, 509, 450}
             };
 
             // Player 10: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
@@ -1150,19 +1464,19 @@ namespace BOL_Companion
             // This player doesn't exist in this configuration
             intLocations[9] = new int[4, 4]
             {
-                {285, 627, 0, 0},
+                {289, 162, 0, 0},
                 {0, 0, 0, 0},
                 {0, 0, 0, 0},
-                {0, 0, 285, 802}
+                {0, 0, 581, 299}
             };
         }
 
         private void PlayerLocations10Players()
         {
-            // intLocations[1, -] = Player info (name and chipstack) (x, y, width, height)
-            // intLocations[1, -] = Hold Card 1 info (x1, y1, width, height)
-            // intLocations[1, -] = Hold Card 2 info (x2, y2, width, height)
-            // intLocations[1, -] = action bar and dealer chip check locations (x_Action, y_Action, x_DealerChip, y_DealerChip)
+            // intLocations[-][0, -] = Player info (name and chipstack) (x, y, width, height)
+            // intLocations[-][1, -] = Hold Card 1 info (x1, y1, width, height)
+            // intLocations[-][2, -] = Hold Card 2 info (x2, y2, width, height)
+            // intLocations[-][3, -] = action bar and dealer chip check locations (x_Action, y_Action, x_DealerChip, y_DealerChip)
 
             // Player 1: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
             // and x1, y1 for action bar and dealer chip
@@ -1248,7 +1562,7 @@ namespace BOL_Companion
             // and x1, y1 for action bar and dealer chip
             intLocations[8] = new int[4, 4]
             {
-                {525, 589, 0, 0},
+                {555, 589, 0, 0},
                 {0, 0, 0, 0},
                 {0, 0, 0, 0},
                 {0, 0, 766, 656}
@@ -1258,7 +1572,7 @@ namespace BOL_Companion
             // and x1, y1 for action bar and dealer chip
             intLocations[9] = new int[4, 4]
             {
-                {286, 447, 0, 0},
+                {555, 447, 0, 0},
                 {0, 0, 0, 0},
                 {0, 0, 0, 0},
                 {0, 0, 560, 552}

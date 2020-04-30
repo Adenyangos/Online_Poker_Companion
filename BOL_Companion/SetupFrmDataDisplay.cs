@@ -10,6 +10,9 @@ using static BOL_Companion.frmDataDisplay;
 
 namespace BOL_Companion
 {
+    /// <summary>
+    /// This class sets the size and location of frmDataDisplay and intializes all the form controls, their attributes and defines their locations.
+    /// </summary>
     class SetupFrmDataDisplay
     {
         Font fntChartTitles, fntPlayerName, fntNoData, fntSampleCount, fntChartLabels, fntLegend, fntButton;
@@ -31,9 +34,16 @@ namespace BOL_Companion
 
         private void InitializeForm()
         {
-            frm.Location = Screen.AllScreens[1].WorkingArea.Location;
+            if (Screen.AllScreens.Count() < 3)
+            {
+                frm.Location = Screen.AllScreens[0].WorkingArea.Location;
+            }
+            else
+            {
+                frm.Location = Screen.AllScreens[2].WorkingArea.Location;
+            }
             frm.WindowState = FormWindowState.Maximized;
-            frm.Text = "Adam's Bet Online Poker Data Display";
+            frm.Text = "Data Display";
             frm.BackColor = clrRtbBackground;
         }
 
@@ -159,12 +169,12 @@ namespace BOL_Companion
             frm.lblProcessingTimeOthers.Text = "Others: 0.000 sec.";
             frm.Controls.Add(frm.lblProcessingTimeOthers);
 
-            frm.lblProcessingTimeJaba = new Label();
-            frm.lblProcessingTimeJaba.Font = new Font("Courier New", 10, FontStyle.Bold);
-            frm.lblProcessingTimeJaba.ForeColor = Color.White;
-            frm.lblProcessingTimeJaba.Anchor = AnchorStyles.None;
-            frm.lblProcessingTimeJaba.Text = "JabaAdam: 0.000 sec.";
-            frm.Controls.Add(frm.lblProcessingTimeJaba);
+            frm.lblProcessingTimePlrOfInterest = new Label();
+            frm.lblProcessingTimePlrOfInterest.Font = new Font("Courier New", 10, FontStyle.Bold);
+            frm.lblProcessingTimePlrOfInterest.ForeColor = Color.White;
+            frm.lblProcessingTimePlrOfInterest.Anchor = AnchorStyles.None;
+            frm.lblProcessingTimePlrOfInterest.Text = "JabaAdam: 0.000 sec.";
+            frm.Controls.Add(frm.lblProcessingTimePlrOfInterest);
 
             frm.lblLegendFold = new Label();
             frm.lblLegendFold.Font = fntLegend;
@@ -352,7 +362,7 @@ namespace BOL_Companion
             frm.lblFrmTitle.AutoSize = true;
             frm.lblTime.AutoSize = true;
             frm.lblProcessingTimeOthers.AutoSize = true;
-            frm.lblProcessingTimeJaba.AutoSize = true;
+            frm.lblProcessingTimePlrOfInterest.AutoSize = true;
             frm.lblLegendFold.AutoSize = true;
             frm.lblLegendCheck.AutoSize = true;
             frm.lblLegendCall.AutoSize = true;
@@ -389,7 +399,7 @@ namespace BOL_Companion
             frm.btnRiver.Location = new Point(435, 25);
             frm.pnlData.Location = new Point(intFrmWidth / 2 - frm.pnlData.Width / 2, (intFrmHeight - 60) / 2 - frm.pnlData.Height / 2 + 60);
             frm.lblProcessingTimeOthers.Location = new Point(frm.pnlData.Location.X + frm.pnlData.Width - frm.lblProcessingTimeOthers.Width + 4, 1001);
-            frm.lblProcessingTimeJaba.Location = new Point(frm.pnlData.Location.X, 1001);
+            frm.lblProcessingTimePlrOfInterest.Location = new Point(frm.pnlData.Location.X, 1001);
 
             frm.lblLegendBet.Location = new Point(1867, 48);
             frm.pnlLegendBet.Location = new Point(frm.lblLegendBet.Location.X - 33, 50);

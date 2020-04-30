@@ -16,7 +16,9 @@ namespace BOL_Companion
     {
         #region Variables and Objects
 
-        int intBoardStatus_tsk, intDbGameId_tsk, intCurrNumPlayers_tsk, intJabaIndex;
+        int intBoardStatus_tsk, intDbGameId_tsk, intCurrNumPlayers_tsk;
+        long lngPlrOfInterestDbHandPlayerId;
+        string strPlrOfInterest;
         bool[] blnOpenSeat_tsk, blnPlayerFolded_tsk;
         int[] intDbId_tsk;
         string[] strName_tsk;
@@ -26,12 +28,14 @@ namespace BOL_Companion
             clrCall_Fadded, clrBet, clrBet_Fadded, clrWhite_Fadded;
 
         Color clrRtbBackground;
-        Stopwatch stpDataUpdateTimeOthers, stpDataUpdateTimeJaba;
+        Stopwatch stpDataUpdateTimeOthers, stpDataUpdateTimePlrOfInterest;
 
         SetupFrmDataDisplay SetupFrmDataDisplay_;
+        DbController db_PlayerHandInfoQuery;
         DbController[] db_;
         DataAnalyzer[] daz;
         DataAnalyzer.DataCounter[] cntPlayerData;
+        List<DbController.DbPlayerHandInfoAll>[] hiaPlayerHandInfoAll;
         Task[] tskUpdateData;
 
         #endregion
@@ -39,7 +43,7 @@ namespace BOL_Companion
         #region Controls
 
         public Label lblFrmTitle, lblLegendFold, lblLegendCheck, lblLegendCall, lblLegendBet, lblTime, 
-            lblProcessingTimeOthers, lblProcessingTimeJaba;
+            lblProcessingTimeOthers, lblProcessingTimePlrOfInterest;
         public Label[] lblPlayerName;
         public Label[][] lblChartNoData, lblChartSampleCount;
         public Button btnPreFlop, btnFlop, btnTurn, btnRiver;
@@ -63,10 +67,12 @@ namespace BOL_Companion
             SetupFrmDataDisplay_ = new SetupFrmDataDisplay(this, clrRtbBackground);
 
             stpDataUpdateTimeOthers = new Stopwatch();
-            stpDataUpdateTimeJaba = new Stopwatch();
+            stpDataUpdateTimePlrOfInterest = new Stopwatch();
+            db_PlayerHandInfoQuery = new DbController();
             db_ = new DbController[10];
             daz = new DataAnalyzer[10];
             cntPlayerData = new DataAnalyzer.DataCounter[10];
+
             for (int i = 0; i < 10; i++)
             {
                 db_[i] = new DbController();
@@ -76,8 +82,7 @@ namespace BOL_Companion
 
             // only 9 tasks (assuming a 9 player table)
             tskUpdateData = new Task[9];
-
-            CreateUpdateDataTasks();
+            hiaPlayerHandInfoAll = new List<DbController.DbPlayerHandInfoAll>[9];
         }
 
         #endregion
@@ -88,10 +93,11 @@ namespace BOL_Companion
         {
             // start data processing timers
             stpDataUpdateTimeOthers.Start();
-            stpDataUpdateTimeJaba.Start();
+            stpDataUpdateTimePlrOfInterest.Start();
 
             int intChartSetIndex;
             int intIndexFrom6;
+            int intPlrOfInterestIndex;
 
             // Update time stamp
             lblTime.Text = DateTime.Now.ToString("hh:mm:ss tt");
@@ -133,21 +139,32 @@ namespace BOL_Companion
                 VisualRiver();
             }
 
-            intJabaIndex = -1;
+            // Create the data update tasks so they are ready to go when the they are called below. Note, I am creating the tasks here instead
+            // of re-creating the tasks immediately after they run because I want to use a single DB context to do the substantial amount of 
+            // DB querying to get the data that these tasks require. I believe using a singe DB context to do all of this querying, which 
+            // involves requesting much of the same data for multiple tasks, will be much more efficient if done with a single DB context.
+            CreateUpdateDataTasks();
 
-            // Start tasks for all the players that are still in the hand (not folded) except JabaAdam (Me)
+            intPlrOfInterestIndex = -1;
+
+            // Start tasks for all the players that are still in the hand (not folded) except the player of interest
             for (int i = 0; i < 9; i++)
             {
-                intIndexFrom6 = IndexFrom6(i);
-                
-                // Find out which player is JabaAdam (me). JabaAdam's data will be processed last in order to improve performance because there might 
-                // be much more data to look up and process.
-                if (strName_tsk[intIndexFrom6].ToUpper() == "JABAADAM")
+                if (strName_tsk[i] == "")
                 {
-                    intJabaIndex = intIndexFrom6;
+                    strName_tsk[i] = "Player " + (i + 1).ToString();
                 }
 
-                if (!blnPlayerFolded_tsk[intIndexFrom6] && intIndexFrom6 != intJabaIndex)
+                intIndexFrom6 = IndexFrom6(i);
+
+                // Find out which player is (if any) is the player of interest. The player of interest's data will be processed last in order to improve 
+                // performance because the player of interest may have much more data to look up and process.
+                if (strName_tsk[intIndexFrom6].ToUpper() == strPlrOfInterest.ToUpper())
+                {
+                    intPlrOfInterestIndex = intIndexFrom6;
+                }
+
+                if (!blnPlayerFolded_tsk[intIndexFrom6] && intIndexFrom6 != intPlrOfInterestIndex)
                 {
                     if (tskUpdateData[intIndexFrom6].Status == TaskStatus.Created && tskUpdateData[intIndexFrom6].Status != TaskStatus.Running)
                     {
@@ -157,19 +174,19 @@ namespace BOL_Companion
                     // Debug.WriteLine(strName_tsk[intIndexFrom6].ToString() + " - charts normal colors");
                     UpdateChartColors(PlayerIndexToChartSetIndex(intIndexFrom6), false);
                 }
-                else if (intIndexFrom6 != intJabaIndex)
+                else if (intIndexFrom6 != intPlrOfInterestIndex)
                 {
                     // Debug.WriteLine(strName_tsk[intIndexFrom6].ToString() + " - charts fadded colors");
                     UpdateChartColors(PlayerIndexToChartSetIndex(intIndexFrom6), true);
                 }
             }
 
-            // Start tasks for all the players that are no longer in the hand (folded) except JabaAdam (Me)
+            // Start tasks for all the players that are no longer in the hand (folded) except the player of interest
             for (int i = 0; i < 9; i++)
             {
                 intIndexFrom6 = IndexFrom6(i);
 
-                if (blnPlayerFolded_tsk[intIndexFrom6] && intIndexFrom6 != intJabaIndex)
+                if (blnPlayerFolded_tsk[intIndexFrom6] && intIndexFrom6 != intPlrOfInterestIndex)
                 {
                     if (tskUpdateData[intIndexFrom6].Status == TaskStatus.Created && tskUpdateData[intIndexFrom6].Status != TaskStatus.Running)
                     {
@@ -179,11 +196,11 @@ namespace BOL_Companion
                 }
             }
 
-            // Start the task for JabaAdam (me) last because there might be more information to process and it may take more time
-            if (tskUpdateData[intJabaIndex].Status == TaskStatus.Created && tskUpdateData[intJabaIndex].Status != TaskStatus.Running)
+            // Start the task for the player of interst last because there might be more information to process and it may take more time
+            if (tskUpdateData[intPlrOfInterestIndex].Status == TaskStatus.Created && tskUpdateData[intPlrOfInterestIndex].Status != TaskStatus.Running)
             {
-                // Debug.WriteLine("Launching task #" + intJabaIndex.ToString() + " - " + strName_tsk[intJabaIndex].ToString() + "(" + intDbId_tsk[intJabaIndex].ToString() + ")");
-                tskUpdateData[intJabaIndex].Start();
+                // Debug.WriteLine("Launching task #" + intPlrOfInterestIndex.ToString() + " - " + strName_tsk[intPlrOfInterestIndex].ToString() + "(" + intDbId_tsk[intPlrOfInterestIndex].ToString() + ")");
+                tskUpdateData[intPlrOfInterestIndex].Start();
             }
 
             // Note: I am assuming a 9 player table here
@@ -197,18 +214,18 @@ namespace BOL_Companion
                 }
                 else
                 {
-                    lblPlayerName[intChartSetIndex].Text = strName[i];
+                    lblPlayerName[intChartSetIndex].Text = strName_tsk[i];
                 }
             }
 
             lblPlayerName[9].Text = "Other Players at This Table";
 
-            // Do everything for all the players still in this hand (not folded) except JabaAdam (Me)
+            // Do everything for all the players still in this hand (not folded) except the player of interest
             for (int i = 0; i < 9; i++)
             {
                 intIndexFrom6 = IndexFrom6(i);
 
-                if (!blnPlayerFolded_tsk[intIndexFrom6] && intIndexFrom6 != intJabaIndex)
+                if (!blnPlayerFolded_tsk[intIndexFrom6] && intIndexFrom6 != intPlrOfInterestIndex)
                 {
                     await tskUpdateData[intIndexFrom6];
                     // Debug.WriteLine("Running UI for task #" + intIndexFrom6.ToString() + " - " + strName_tsk[intIndexFrom6].ToString());
@@ -216,12 +233,12 @@ namespace BOL_Companion
                 }
             }
 
-            // Do everything for all the players not still in this hand (folded) except JabaAdam (Me)
+            // Do everything for all the players not still in this hand (folded) except the player of interest
             for (int i = 0; i < 9; i++)
             {
                 intIndexFrom6 = IndexFrom6(i);
 
-                if (blnPlayerFolded_tsk[intIndexFrom6] && intIndexFrom6 != intJabaIndex)
+                if (blnPlayerFolded_tsk[intIndexFrom6] && intIndexFrom6 != intPlrOfInterestIndex)
                 {
                     await tskUpdateData[intIndexFrom6];
                     // Debug.WriteLine("Running UI for task #" + intIndexFrom6.ToString() + " - " + strName_tsk[intIndexFrom6].ToString());
@@ -230,7 +247,7 @@ namespace BOL_Companion
             }
 
             // Now that all the other player data has been updated update the sumation of all other player data charts
-            cntPlayerData[9] = daz[9].SumPlayerData(cntPlayerData, intJabaIndex);
+            cntPlayerData[9] = daz[9].SumPlayerData(cntPlayerData, intPlrOfInterestIndex);
             UpdatePlayersCharts(9, false);
 
             // Update data processing timer for other players
@@ -239,17 +256,14 @@ namespace BOL_Companion
             stpDataUpdateTimeOthers.Reset();
 
 
-            // Update the data for JabaAdam (me) last because there might be more information to process and it may take more time
-            await tskUpdateData[intJabaIndex];
-            // Debug.WriteLine("Running UI for task #" + intJabaIndex.ToString() + " - " + strName_tsk[intJabaIndex].ToString());
-            UpdatePlayersCharts(intJabaIndex, false);
+            // Update the data for the player of interest last because there might be more information to process and it may take more time
+            await tskUpdateData[intPlrOfInterestIndex];
+            // Debug.WriteLine("Running UI for task #" + intPlrOfInterestIndex.ToString() + " - " + strName_tsk[intPlrOfInterestIndex].ToString());
+            UpdatePlayersCharts(intPlrOfInterestIndex, false);
 
-            stpDataUpdateTimeJaba.Stop();
-            lblProcessingTimeJaba.Text = "JabaAdam: " + (stpDataUpdateTimeJaba.ElapsedMilliseconds / 1000.0).ToString("f3") + " sec.";
-            stpDataUpdateTimeJaba.Reset();
-
-            // Create the data update tasks again so they are ready to go the next time this method is called
-            CreateUpdateDataTasks();
+            stpDataUpdateTimePlrOfInterest.Stop();
+            lblProcessingTimePlrOfInterest.Text = strPlrOfInterest + ": " + (stpDataUpdateTimePlrOfInterest.ElapsedMilliseconds / 1000.0).ToString("f3") + " sec.";
+            stpDataUpdateTimePlrOfInterest.Reset();
         }
 
         public void ZeroData()
@@ -283,8 +297,14 @@ namespace BOL_Companion
             // Update data processing timer
             stpDataUpdateTimeOthers.Stop();
             lblProcessingTimeOthers.Text = "Others: " + (stpDataUpdateTimeOthers.ElapsedMilliseconds / 1000.0).ToString("f3") + " sec.";
-            lblProcessingTimeJaba.Text = "JabaAdam: " + (stpDataUpdateTimeOthers.ElapsedMilliseconds / 1000.0).ToString("f3") + " sec.";
+            lblProcessingTimePlrOfInterest.Text = strPlrOfInterest + ": " + (stpDataUpdateTimeOthers.ElapsedMilliseconds / 1000.0).ToString("f3") + " sec.";
             stpDataUpdateTimeOthers.Reset();
+        }
+
+        public void PlayerOfInterest(string strPlr, long lngPlrDbHandPlayerId)
+        {
+            strPlrOfInterest = strPlr;
+            lngPlrOfInterestDbHandPlayerId = lngPlrDbHandPlayerId;
         }
 
         public void VisualPreFlop()
@@ -402,7 +422,7 @@ namespace BOL_Companion
             // Update data processing timer
             stpDataUpdateTimeOthers.Stop();
             lblProcessingTimeOthers.Text = "Others: " + (stpDataUpdateTimeOthers.ElapsedMilliseconds / 1000.0).ToString("f3") + " sec.";
-            lblProcessingTimeJaba.Text = "JabaAdam: " + (stpDataUpdateTimeOthers.ElapsedMilliseconds / 1000.0).ToString("f3") + " sec.";
+            lblProcessingTimePlrOfInterest.Text = strPlrOfInterest + ": " + (stpDataUpdateTimeOthers.ElapsedMilliseconds / 1000.0).ToString("f3") + " sec.";
             stpDataUpdateTimeOthers.Reset();
         }
 
@@ -429,7 +449,7 @@ namespace BOL_Companion
             // Update data processing timer
             stpDataUpdateTimeOthers.Stop();
             lblProcessingTimeOthers.Text = "Others: " + (stpDataUpdateTimeOthers.ElapsedMilliseconds / 1000.0).ToString("f3") + " sec.";
-            lblProcessingTimeJaba.Text = "JabaAdam: " + (stpDataUpdateTimeOthers.ElapsedMilliseconds / 1000.0).ToString("f3") + " sec.";
+            lblProcessingTimePlrOfInterest.Text = strPlrOfInterest + ": " + (stpDataUpdateTimeOthers.ElapsedMilliseconds / 1000.0).ToString("f3") + " sec.";
             stpDataUpdateTimeOthers.Reset();
         }
 
@@ -456,7 +476,7 @@ namespace BOL_Companion
             // Update data processing timer
             stpDataUpdateTimeOthers.Stop();
             lblProcessingTimeOthers.Text = "Others: " + (stpDataUpdateTimeOthers.ElapsedMilliseconds / 1000.0).ToString("f3") + " sec.";
-            lblProcessingTimeJaba.Text = "Others: " + (stpDataUpdateTimeOthers.ElapsedMilliseconds / 1000.0).ToString("f3") + " sec.";
+            lblProcessingTimePlrOfInterest.Text = strPlrOfInterest + ": " + (stpDataUpdateTimeOthers.ElapsedMilliseconds / 1000.0).ToString("f3") + " sec.";
             stpDataUpdateTimeOthers.Reset();
         }
 
@@ -483,7 +503,7 @@ namespace BOL_Companion
             // Update data processing timer
             stpDataUpdateTimeOthers.Stop();
             lblProcessingTimeOthers.Text = "Others: " + (stpDataUpdateTimeOthers.ElapsedMilliseconds / 1000.0).ToString("f3") + " sec.";
-            lblProcessingTimeJaba.Text = "Others: " + (stpDataUpdateTimeOthers.ElapsedMilliseconds / 1000.0).ToString("f3") + " sec.";
+            lblProcessingTimePlrOfInterest.Text = strPlrOfInterest + ": "+ (stpDataUpdateTimeOthers.ElapsedMilliseconds / 1000.0).ToString("f3") + " sec.";
             stpDataUpdateTimeOthers.Reset();
         }
 
@@ -581,7 +601,7 @@ namespace BOL_Companion
         }
 
         /// <summary>
-        /// Converts the player index to the chart set index. This is used so the data for my player "JabaAdam" will always be displayed in the first position. This assumes I am always seated in the 7th seat (index 6).
+        /// Converts the player index to the chart set index. This is used so the data for the player of interest will always be displayed in the first position. This assumes the player of interest is always seated in the 7th seat (index 6) [just because the 7th seat is a seat I personally like].
         /// </summary>
         /// <param name="intPlayerIndex">The index of the player</param>
         /// <returns>The index of the chart set</returns>
@@ -674,6 +694,8 @@ namespace BOL_Companion
         /// </summary>
         private void CreateUpdateDataTasks()
         {
+            PreparePlayerHandInfoForAnalysis();
+
             for (int i = 0; i < 9; i++)
             {
                 int j = i;
@@ -691,11 +713,26 @@ namespace BOL_Companion
                         }
                         else
                         {
-                            cntPlayerData[j] = daz[j].AnalyzePlayerData(db_[j].QueryPlayerHandsInfoAll(db_[j].QueryPlayerHandInfo(intDbId_tsk[j], 300)), intDbGameId_tsk, intCurrNumPlayers_tsk);
+                            cntPlayerData[j] = daz[j].AnalyzePlayerData(hiaPlayerHandInfoAll[j], intDbGameId_tsk, intCurrNumPlayers_tsk, lngPlrOfInterestDbHandPlayerId);
                         }
 
                         // Debug.WriteLine("Completing task #" + j.ToString() + " - " + strName_tsk[j].ToString());
                     });
+                }
+            }
+        }
+
+        private void PreparePlayerHandInfoForAnalysis()
+        {
+            Bol_Model_DBEntities ctxQueryContext;
+
+            ctxQueryContext = db_PlayerHandInfoQuery.GetDbContext();
+
+            using (ctxQueryContext)
+            {
+                for (int i = 0; i < 9; i++)
+                {
+                    hiaPlayerHandInfoAll[i] = db_[i].QueryPlayerHandsInfoAll_query(db_[i].QueryPlayerHandInfo_query(intDbId_tsk[i], 300, ctxQueryContext), ctxQueryContext);
                 }
             }
         }

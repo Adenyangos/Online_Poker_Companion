@@ -17,25 +17,25 @@ namespace BOL_Companion
 
         #region Public Methods
 
-        public DataCounter AnalyzePlayerData(List<DbPlayerHandInfoAll> lstAllPlayerData, int intCurrGameId, int intCurrNumPlayers)
+        public DataCounter AnalyzePlayerData(List<DbPlayerHandInfoAll> lstAllPlayerData, int intCurrGameId, int intCurrNumPlayers, long lngPlayerofInterestHandPlayerId)
         {
             //Pre-Flop
             bool blnBlindExists, blnFirstFlopAction, blnFirstTurnAction, blnFirstRiverAction, blnPreFlopCheck, blnPreFlopBetMade, 
                 blnFlopBetMade, blnTurnBetMade, blnRiverBetMade, blnFolded;
-            int intPlayerIndex, intFlopActionNum, intTurnActionNum, intRiverActionNum, intFirstPlayerToActIndex;
+            int intCurrPlayerIndex, intFlopActionNum, intTurnActionNum, intRiverActionNum, intFirstPlayerToActIndex;
             int[] intChipsInPot, intPlayerChipStackStart, intBlindPlayerIndices;
             DataCounter cnt;
 
             // intChipsInPot is how many chips each player has in the pot (assuming 10 players per table max)
             intChipsInPot = new int[10];
-            // intPlayerChipStackStart is how many chips the each player has at the beginning of the hand (assuming 10 players per table max)
+            // intPlayerChipStackStart is how many chips each player has at the beginning of the hand (assuming 10 players per table max)
             intPlayerChipStackStart = new int[10];
             // intBlindPlayerIndicies are the indicies of the two blind players
             intBlindPlayerIndices = new int[2];
 
             cnt = new DataCounter();
 
-            // Zero out this array. I added this after this method was already working but after reviewing i decided to add it just in case.
+            // Zero out this array. I added this loop after this method was already working but after reviewing i decided to add it just in case.
             for (int i = 0; i < intChipsInPot.Length; i++)
             {
                 intChipsInPot[i] = 0;
@@ -50,7 +50,7 @@ namespace BOL_Companion
                 blnBlindExists = false;
 
                 // Check to make sure at least one player posted a blind this hand. 
-                // If no blinds this is an incomplete hand -> ignore it
+                // If no blinds this is an incomplete hand -> ignore it (we don't have the data starting from the beginning of the hand)
                 foreach (DbHandPlayerInfo hp in hi.lstHandPlayerInfo)
                 {
                     if (hp.intBlind > 0)
@@ -90,7 +90,7 @@ namespace BOL_Companion
                     blnFlopBetMade = false;
                     blnTurnBetMade = false;
                     blnRiverBetMade = false;
-                    intPlayerIndex = -1;
+                    intCurrPlayerIndex = -1;
                     intBlindPlayerIndices[0] = -1;
                     intBlindPlayerIndices[1] = -1;
 
@@ -105,7 +105,7 @@ namespace BOL_Companion
 
                         if (hi.HandInfo.lngHandPlayerId == hi.lstHandPlayerInfo[i].lngHandPlayerId)
                         {
-                            intPlayerIndex = i;
+                            intCurrPlayerIndex = i;
                         }
 
                         if (hi.lstHandPlayerInfo[i].intBlind > 0)
@@ -117,6 +117,111 @@ namespace BOL_Companion
                             else
                             {
                                 intBlindPlayerIndices[1] = i;
+                            }
+                        }
+                    }
+
+                    // Check to make sure this hand has a winner (i.e. the hand ended with someone gaining chips which is signified by a 
+                    // negative intChipCountChange number). First I will check to make sure hi.lstPlayerActionInfo.Count > 0 to avoid an error
+                    // in the if statement here. If hi.lstPlayerActionInfo.Count == 0 no need to worry about the code below because it means
+                    // this is pre-flop and the player of interest is the first player to act so nothing has happened so far this hand.
+                    if (hi.lstPlayerActionInfo.Count > 0 && hi.lstPlayerActionInfo[hi.lstPlayerActionInfo.Count - 1].intChipCountChange >= 0)
+                    {
+                        // Check to make sure this is the current hand
+
+                        for (int i = 0; i < hi.lstHandPlayerInfo.Count; i++)
+                        {
+                            // check to see if this is the hand currently in progress (use lngPlayerofInterestHandPlayerId which is the player
+                            // of interest's HandPlayerId for the hand in progress)
+                            if (hi.lstHandPlayerInfo[i].lngHandPlayerId == lngPlayerofInterestHandPlayerId)
+                            {
+                                // This is the hand currently in progress and the hand has not been completed
+
+                                int intNextHandActionNumber = 0;
+                                int intLargeBet = 1000000000;
+
+                                // Find the correct next hand action number. If the last action was a player action the next hand action number
+                                // will be lstPlayerActionInfo.Count. However, if the last action was another board card being shown then the
+                                // next hand action number is either intFlopActionNumber + 1, intTurnActionNumber + 1 or intRiverActionNumber + 1
+
+                                // First find latest board action
+                                if (intRiverActionNum < 100000)
+                                {
+                                    intNextHandActionNumber = intRiverActionNum + 1;
+                                }
+                                else if (intTurnActionNum < 100000)
+                                {
+                                    intNextHandActionNumber = intTurnActionNum + 1;
+                                }
+                                else if (intFlopActionNum < 100000)
+                                {
+                                    intNextHandActionNumber = intFlopActionNum + 1;
+                                }
+
+                                // Now see if the latest hand action was more recent
+                                if (hi.lstPlayerActionInfo.Count > intNextHandActionNumber)
+                                {
+                                    intNextHandActionNumber = hi.lstPlayerActionInfo.Count;
+                                }
+
+                                // It is the player of interest's (lngPlayerOfInterestHandPlayerId) turn in the hand currently in progress.
+                                // Add a large bet HandPlayerAction to the current DbHandPlayerInfoAll for the player of interest so that
+                                // players who checked before this player will have there actions counted.
+                                hi.lstPlayerActionInfo.Add(new DbPlayerActionInfo
+                                {
+                                    lngHandPlayerId = lngPlayerofInterestHandPlayerId,
+                                    intChipCountChange = intLargeBet,
+                                    intHandActionNumber = intNextHandActionNumber
+                                });
+
+                                // Add the same large bet to the player's initial chip count to prevent issues that might arise with pre-flop
+                                // call/bet minimums and all-in issues in the code
+                                hi.lstHandPlayerInfo[i].intChipCountStart += intLargeBet;
+
+                                // If the current player (hi.HandInfo.lngHandPlayerId) is the player of interest 
+                                // (lngPlayerOfInterestHandPlayerId) subtract 1 fold from his DataCounter structure
+                                if (hi.HandInfo.lngHandPlayerId == lngPlayerofInterestHandPlayerId)
+                                {
+                                    // Find out if this is a pre-flop, flop, turn or river fold
+                                    if (intRiverActionNum < 100000)
+                                    {
+                                        // We already know this is the current hand in progress so it is "This Table" and it is also
+                                        // "Curr Number of Players"
+                                        cnt.cirRiver.actAnyTableAnyNumPlayers.lngBet -= 1;
+                                        cnt.cirRiver.actThisTableAnyNumPlayers.lngBet -= 1;
+                                        cnt.cirRiver.actAnyTableCurrNumPlayers.lngBet -= 1;
+                                        cnt.cirRiver.actThisTableCurrNumPlayers.lngBet -= 1;
+                                    }
+                                    else if (intTurnActionNum < 100000)
+                                    {
+                                        // We already know this is the current hand in progress so it is "This Table" and it is also
+                                        // "Curr Number of Players"
+                                        cnt.cirTurn.actAnyTableAnyNumPlayers.lngBet -= 1;
+                                        cnt.cirTurn.actThisTableAnyNumPlayers.lngBet -= 1;
+                                        cnt.cirTurn.actAnyTableCurrNumPlayers.lngBet -= 1;
+                                        cnt.cirTurn.actThisTableCurrNumPlayers.lngBet -= 1;
+                                    }
+                                    else if (intFlopActionNum < 100000)
+                                    {
+                                        // We already know this is the current hand in progress so it is "This Table" and it is also
+                                        // "Curr Number of Players"
+                                        cnt.cirFlop.actAnyTableAnyNumPlayers.lngBet -= 1;
+                                        cnt.cirFlop.actThisTableAnyNumPlayers.lngBet -= 1;
+                                        cnt.cirFlop.actAnyTableCurrNumPlayers.lngBet -= 1;
+                                        cnt.cirFlop.actThisTableCurrNumPlayers.lngBet -= 1;
+                                    }
+                                    else
+                                    {
+                                        // We already know this is the current hand in progress so it is "This Table" and it is also
+                                        // "Curr Number of Players"
+                                        cnt.cirPreFlop.actAnyTableAnyNumPlayers.lngBet -= 1;
+                                        cnt.cirPreFlop.actThisTableAnyNumPlayers.lngBet -= 1;
+                                        cnt.cirPreFlop.actAnyTableCurrNumPlayers.lngBet -= 1;
+                                        cnt.cirPreFlop.actThisTableCurrNumPlayers.lngBet -= 1;
+                                    }
+                                }
+
+                                break;
                             }
                         }
                     }
@@ -175,7 +280,7 @@ namespace BOL_Companion
                             if (hi.lstPlayerActionInfo[i].intHandActionNumber < intFlopActionNum)
                             {
                                 if (ProcessPlayerAciton(hi, i, intChipsInPot, intCurrGameId, intCurrNumPlayers, cnt.cirPreFlop,
-                                    intFirstPlayerToActIndex, intPlayerIndex, intPlayerChipStackStart[intPlayerIndex], ref blnPreFlopBetMade, ref blnFolded, true))
+                                    intFirstPlayerToActIndex, intCurrPlayerIndex, intPlayerChipStackStart[intCurrPlayerIndex], ref blnPreFlopBetMade, ref blnFolded, true))
                                 {
                                     blnPreFlopCheck = false;
                                 }
@@ -186,17 +291,17 @@ namespace BOL_Companion
                             {
                                 if (blnFirstFlopAction)
                                 {
-                                    if (blnPreFlopCheck && !RemainingPlayersAllIn(intChipsInPot, intPlayerChipStackStart, intPlayerIndex, hi.lstHandPlayerInfo.Count))
+                                    if (blnPreFlopCheck && !RemainingPlayersAllIn(intChipsInPot, intPlayerChipStackStart, intCurrPlayerIndex, hi.lstHandPlayerInfo.Count))
                                     {
                                         // Checking to see if the player is already all-in is taken care of within PlayerCheckAction
-                                        PlayerCheckAction(hi, intCurrGameId, intCurrNumPlayers, intPlayerChipStackStart[intPlayerIndex],
-                                            intChipsInPot[intPlayerIndex], cnt.cirPreFlop);
+                                        PlayerCheckAction(hi, intCurrGameId, intCurrNumPlayers, intPlayerChipStackStart[intCurrPlayerIndex],
+                                            intChipsInPot[intCurrPlayerIndex], cnt.cirPreFlop);
                                         blnPreFlopCheck = false;
                                     }
                                     blnFirstFlopAction = false;
                                 }
                                 ProcessPlayerAciton(hi, i, intChipsInPot, intCurrGameId, intCurrNumPlayers, cnt.cirFlop, intFirstPlayerToActIndex,
-                                    intPlayerIndex, intPlayerChipStackStart[intPlayerIndex], ref blnFlopBetMade, ref blnFolded, false);
+                                    intCurrPlayerIndex, intPlayerChipStackStart[intCurrPlayerIndex], ref blnFlopBetMade, ref blnFolded, false);
                             }
 
                             // Turn action
@@ -205,25 +310,25 @@ namespace BOL_Companion
                                 if (blnFirstTurnAction)
                                 {
                                     // Check to see if player checked pre-flop (and no bets were made on the flop)
-                                    if (blnPreFlopCheck && !RemainingPlayersAllIn(intChipsInPot, intPlayerChipStackStart, intPlayerIndex, hi.lstHandPlayerInfo.Count))
+                                    if (blnPreFlopCheck && !RemainingPlayersAllIn(intChipsInPot, intPlayerChipStackStart, intCurrPlayerIndex, hi.lstHandPlayerInfo.Count))
                                     {
                                         // Checking to see if the player is already all-in is taken care of within PlayerCheckAction
-                                        PlayerCheckAction(hi, intCurrGameId, intCurrNumPlayers, intPlayerChipStackStart[intPlayerIndex],
-                                            intChipsInPot[intPlayerIndex], cnt.cirPreFlop);
+                                        PlayerCheckAction(hi, intCurrGameId, intCurrNumPlayers, intPlayerChipStackStart[intCurrPlayerIndex],
+                                            intChipsInPot[intCurrPlayerIndex], cnt.cirPreFlop);
                                         blnPreFlopCheck = false;
                                     }
 
-                                    if (!blnFlopBetMade && !RemainingPlayersAllIn(intChipsInPot, intPlayerChipStackStart, intPlayerIndex, hi.lstHandPlayerInfo.Count))
+                                    if (!blnFlopBetMade && !RemainingPlayersAllIn(intChipsInPot, intPlayerChipStackStart, intCurrPlayerIndex, hi.lstHandPlayerInfo.Count))
                                     {
                                         // Checking to see if the player is already all-in is taken care of within PlayerCheckAction
-                                        PlayerCheckAction(hi, intCurrGameId, intCurrNumPlayers, intPlayerChipStackStart[intPlayerIndex],
-                                            intChipsInPot[intPlayerIndex], cnt.cirFlop);
+                                        PlayerCheckAction(hi, intCurrGameId, intCurrNumPlayers, intPlayerChipStackStart[intCurrPlayerIndex],
+                                            intChipsInPot[intCurrPlayerIndex], cnt.cirFlop);
                                     }
                                     blnFirstTurnAction = false;
                                 }
 
                                 ProcessPlayerAciton(hi, i, intChipsInPot, intCurrGameId, intCurrNumPlayers, cnt.cirTurn, intFirstPlayerToActIndex,
-                                    intPlayerIndex, intPlayerChipStackStart[intPlayerIndex], ref blnTurnBetMade, ref blnFolded, false);
+                                    intCurrPlayerIndex, intPlayerChipStackStart[intCurrPlayerIndex], ref blnTurnBetMade, ref blnFolded, false);
                             }
 
                             // River action
@@ -232,43 +337,42 @@ namespace BOL_Companion
                                 if (blnFirstRiverAction)
                                 {
                                     // Check to see if player checked pre-flop (and no bets were made on the flop or the turn)
-                                    if (blnPreFlopCheck && !RemainingPlayersAllIn(intChipsInPot, intPlayerChipStackStart, intPlayerIndex, hi.lstHandPlayerInfo.Count))
+                                    if (blnPreFlopCheck && !RemainingPlayersAllIn(intChipsInPot, intPlayerChipStackStart, intCurrPlayerIndex, hi.lstHandPlayerInfo.Count))
                                     {
                                         // Checking to see if the player is already all-in is taken care of within PlayerCheckAction
-                                        PlayerCheckAction(hi, intCurrGameId, intCurrNumPlayers, intPlayerChipStackStart[intPlayerIndex],
-                                            intChipsInPot[intPlayerIndex], cnt.cirPreFlop);
+                                        PlayerCheckAction(hi, intCurrGameId, intCurrNumPlayers, intPlayerChipStackStart[intCurrPlayerIndex],
+                                            intChipsInPot[intCurrPlayerIndex], cnt.cirPreFlop);
                                         blnPreFlopCheck = false;
                                     }
 
-                                    if (!blnTurnBetMade && !RemainingPlayersAllIn(intChipsInPot, intPlayerChipStackStart, intPlayerIndex, hi.lstHandPlayerInfo.Count))
+                                    if (!blnTurnBetMade && !RemainingPlayersAllIn(intChipsInPot, intPlayerChipStackStart, intCurrPlayerIndex, hi.lstHandPlayerInfo.Count))
                                     {
                                         // Checking to see if the player is already all-in is taken care of within PlayerCheckAction
-                                        PlayerCheckAction(hi, intCurrGameId, intCurrNumPlayers, intPlayerChipStackStart[intPlayerIndex],
-                                            intChipsInPot[intPlayerIndex], cnt.cirTurn);
+                                        PlayerCheckAction(hi, intCurrGameId, intCurrNumPlayers, intPlayerChipStackStart[intCurrPlayerIndex],
+                                            intChipsInPot[intCurrPlayerIndex], cnt.cirTurn);
                                     }
                                     blnFirstRiverAction = false;
 
                                 }
 
                                 // Check to see if player checked pre-flop (and no bets were made on the flop, the turn or the river)
-                                if (blnPreFlopCheck && !RemainingPlayersAllIn(intChipsInPot, intPlayerChipStackStart, intPlayerIndex, hi.lstHandPlayerInfo.Count))
+                                if (blnPreFlopCheck && !RemainingPlayersAllIn(intChipsInPot, intPlayerChipStackStart, intCurrPlayerIndex, hi.lstHandPlayerInfo.Count))
                                 {
                                     // Checking to see if the player is already all-in is taken care of within PlayerCheckAction
-                                    PlayerCheckAction(hi, intCurrGameId, intCurrNumPlayers, intPlayerChipStackStart[intPlayerIndex],
-                                        intChipsInPot[intPlayerIndex], cnt.cirPreFlop);
+                                    PlayerCheckAction(hi, intCurrGameId, intCurrNumPlayers, intPlayerChipStackStart[intCurrPlayerIndex],
+                                        intChipsInPot[intCurrPlayerIndex], cnt.cirPreFlop);
                                     blnPreFlopCheck = false;
                                 }
 
-                                // HERE HERE HERE!!!! added 2019.08.24 hoping it works!
                                 // This (blnFirstTurnAction) check is needed in case the flop and the turn were checked by all players. We have to go back and
                                 // and register the players' check calls on the turn.
                                 if (blnFirstTurnAction)
                                 {
-                                    if (!blnFlopBetMade && !RemainingPlayersAllIn(intChipsInPot, intPlayerChipStackStart, intPlayerIndex, hi.lstHandPlayerInfo.Count))
+                                    if (!blnFlopBetMade && !RemainingPlayersAllIn(intChipsInPot, intPlayerChipStackStart, intCurrPlayerIndex, hi.lstHandPlayerInfo.Count))
                                     {
                                         // Checking to see if the player is already all-in is taken care of within PlayerCheckAction
-                                        PlayerCheckAction(hi, intCurrGameId, intCurrNumPlayers, intPlayerChipStackStart[intPlayerIndex],
-                                            intChipsInPot[intPlayerIndex], cnt.cirFlop);
+                                        PlayerCheckAction(hi, intCurrGameId, intCurrNumPlayers, intPlayerChipStackStart[intCurrPlayerIndex],
+                                            intChipsInPot[intCurrPlayerIndex], cnt.cirFlop);
                                     }
                                     blnFirstTurnAction = false;
                                 }
@@ -276,16 +380,16 @@ namespace BOL_Companion
                                 // Last player action of this hand (also note that this player action is occuring on the river)
                                 if (i == hi.lstPlayerActionInfo.Count - 1)
                                 {
-                                    if (!blnRiverBetMade && !RemainingPlayersAllIn(intChipsInPot, intPlayerChipStackStart, intPlayerIndex, hi.lstHandPlayerInfo.Count))
+                                    if (!blnRiverBetMade && !RemainingPlayersAllIn(intChipsInPot, intPlayerChipStackStart, intCurrPlayerIndex, hi.lstHandPlayerInfo.Count))
                                     {
                                         // Checking to see if the player is already all-in is taken care of within PlayerCheckAction
-                                        PlayerCheckAction(hi, intCurrGameId, intCurrNumPlayers, intPlayerChipStackStart[intPlayerIndex],
-                                            intChipsInPot[intPlayerIndex], cnt.cirRiver);
+                                        PlayerCheckAction(hi, intCurrGameId, intCurrNumPlayers, intPlayerChipStackStart[intCurrPlayerIndex],
+                                            intChipsInPot[intCurrPlayerIndex], cnt.cirRiver);
                                     }
                                 }
 
                                 ProcessPlayerAciton(hi, i, intChipsInPot, intCurrGameId, intCurrNumPlayers, cnt.cirRiver, intFirstPlayerToActIndex,
-                                    intPlayerIndex, intPlayerChipStackStart[intPlayerIndex], ref blnRiverBetMade, ref blnFolded, false);
+                                    intCurrPlayerIndex, intPlayerChipStackStart[intCurrPlayerIndex], ref blnRiverBetMade, ref blnFolded, false);
                             }
                         }
                         else

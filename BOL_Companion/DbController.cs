@@ -20,6 +20,15 @@ namespace BOL_Companion
             frm = frmIn;
         }
 
+        #region Get DB Context
+
+        public Bol_Model_DBEntities GetDbContext()
+        {
+            return new Bol_Model_DBEntities();
+        }
+
+        #endregion
+
         #region Insert Statements
 
         public int InsertGame(bool blnTournament, int intNumPlayers)
@@ -289,10 +298,28 @@ namespace BOL_Companion
 
             using (Bol_Model_DBEntities ctx = new Bol_Model_DBEntities())
             {
-                lstHandInfo = ctx.HandPlayers
-                    .Where(hp => hp.PlayerId == intPlayerId)
+                lstHandInfo = QueryPlayerHandInfo_query(intPlayerId, intMaxNumRecords, ctx);
+            }
+
+            // System.Diagnostics.Debug.WriteLine("This many hands (" + intPlayerId.ToString() + ") --> " + lstHandInfo.Count);
+            return lstHandInfo;
+        }
+
+        /// <summary>
+        /// Queries the DB for hands that this player was involved in.
+        /// </summary>
+        /// <param name="intPlayerId">The DB Player ID of the player of interest</param>
+        /// <param name="intMaxNumRecords">The maximum number of records to pull from the DB</param>
+        /// <param name="ctx_">Bol_Model_DBEntities context</param>
+        /// <returns></returns>
+        public List<DbHandInfo> QueryPlayerHandInfo_query(int intPlayerId_, int intMaxNumRecords_, Bol_Model_DBEntities ctx_)
+        {
+            List<DbHandInfo> lstHandInfo_;
+
+            lstHandInfo_ = ctx_.HandPlayers
+                    .Where(hp => hp.PlayerId == intPlayerId_)
                     .OrderByDescending(hp => hp.Id)
-                    .Take(intMaxNumRecords)
+                    .Take(intMaxNumRecords_)
                     .Select(hp => new DbHandInfo
                     {
                         lngHandId = hp.HandId,
@@ -300,10 +327,9 @@ namespace BOL_Companion
                         intAnte = hp.Hand.Ante,
                         lngHandPlayerId = hp.Id
                     }).ToList();
-            }
 
             // System.Diagnostics.Debug.WriteLine("This many hands (" + intPlayerId.ToString() + ") --> " + lstHandInfo.Count);
-            return lstHandInfo;
+            return lstHandInfo_;
         }
 
         public List<DbPlayerHandInfoAll> QueryPlayerHandsInfoAll(List<DbHandInfo> lstHandInfo)
@@ -311,62 +337,72 @@ namespace BOL_Companion
             // Create the list variable that will contain all the data
             List<DbPlayerHandInfoAll> lstPlayerHandsInfoAll = new List<DbPlayerHandInfoAll>();
 
-            // Add all the current HandInfo (lstHandInfo [HandIds and HandPlayerIds]) to the lstPlayerHandsInfoAll
-            foreach (DbHandInfo hi in lstHandInfo)
+            using (Bol_Model_DBEntities ctx = new Bol_Model_DBEntities())
             {
-                lstPlayerHandsInfoAll.Add(new DbPlayerHandInfoAll(hi));
+                lstPlayerHandsInfoAll = QueryPlayerHandsInfoAll_query(lstHandInfo, ctx);
+            }
+
+            return lstPlayerHandsInfoAll;
+        }
+
+        public List<DbPlayerHandInfoAll> QueryPlayerHandsInfoAll_query(List<DbHandInfo> lstHandInfo_, Bol_Model_DBEntities ctx_)
+        {
+            // Create the list variable that will contain all the data
+            List<DbPlayerHandInfoAll> lstPlayerHandsInfoAll_ = new List<DbPlayerHandInfoAll>();
+
+            // Add all the current HandInfo (lstHandInfo [HandIds and HandPlayerIds]) to the lstPlayerHandsInfoAll
+            foreach (DbHandInfo hi in lstHandInfo_)
+            {
+                lstPlayerHandsInfoAll_.Add(new DbPlayerHandInfoAll(hi));
             }
 
             // Creat a list variable of each type so that it can be inserted into the list variable that will contain all 
             // the data (lstPlayerHandsInfoAll)
-            List<DbHandPlayerInfo> lstHandPlayerInfo;
-            List<DbPlayerActionInfo> lstPlayerActionInfo;
-            List<DbBoardActionInfo> lstBoardActionInfo;
+            List<DbHandPlayerInfo> lstHandPlayerInfo_;
+            List<DbPlayerActionInfo> lstPlayerActionInfo_;
+            List<DbBoardActionInfo> lstBoardActionInfo_;
 
-            using (Bol_Model_DBEntities ctx = new Bol_Model_DBEntities())
+            foreach (DbPlayerHandInfoAll ia in lstPlayerHandsInfoAll_)
             {
-                foreach (DbPlayerHandInfoAll ia in lstPlayerHandsInfoAll)
-                {
-                    // Get handPlayers info
-                    lstHandPlayerInfo = ctx.HandPlayers
-                        .Where(hp => hp.HandId == ia.HandInfo.lngHandId)
-                        .OrderBy(hp => hp.Id)
-                        .Select(hp => new DbHandPlayerInfo
-                        {
-                            lngHandPlayerId = hp.Id,
-                            intChipCountStart = hp.ChipCountStart,
-                            intBlind = hp.Blind
-                        }).ToList();
+                // Get handPlayers info
+                lstHandPlayerInfo_ = ctx_.HandPlayers
+                    .Where(hp => hp.HandId == ia.HandInfo.lngHandId)
+                    .OrderBy(hp => hp.Id)
+                    .Select(hp => new DbHandPlayerInfo
+                    {
+                        lngHandPlayerId = hp.Id,
+                        intChipCountStart = hp.ChipCountStart,
+                        intBlind = hp.Blind
+                    }).ToList();
 
-                    // Get playerActions info
-                    lstPlayerActionInfo = ctx.PlayerActions
-                        .Where(pa => pa.HandPlayer.HandId == ia.HandInfo.lngHandId)
-                        .OrderBy(pa => pa.Id)
-                        .Select(pa => new DbPlayerActionInfo
-                        {
-                            lngHandPlayerId = pa.HandPlayerId,
-                            intChipCountChange = pa.ChipCountChange,
-                            intHandActionNumber = pa.HandActionNumber
-                        }).ToList();
+                // Get playerActions info
+                lstPlayerActionInfo_ = ctx_.PlayerActions
+                    .Where(pa => pa.HandPlayer.HandId == ia.HandInfo.lngHandId)
+                    .OrderBy(pa => pa.Id)
+                    .Select(pa => new DbPlayerActionInfo
+                    {
+                        lngHandPlayerId = pa.HandPlayerId,
+                        intChipCountChange = pa.ChipCountChange,
+                        intHandActionNumber = pa.HandActionNumber
+                    }).ToList();
 
-                    // Get boardActions info
-                    lstBoardActionInfo = ctx.BoardActions
-                        .Where(ba => ba.HandId == ia.HandInfo.lngHandId)
-                        .OrderBy(ba => ba.Id)
-                        .Select(ba => new DbBoardActionInfo
-                        {
-                            intHandActionNumber = ba.HandActionNumber
-                        }).ToList();
+                // Get boardActions info
+                lstBoardActionInfo_ = ctx_.BoardActions
+                    .Where(ba => ba.HandId == ia.HandInfo.lngHandId)
+                    .OrderBy(ba => ba.Id)
+                    .Select(ba => new DbBoardActionInfo
+                    {
+                        intHandActionNumber = ba.HandActionNumber
+                    }).ToList();
 
-                    // Save the newly found handPlayers info, playerActions info and boardActions info to the current
-                    // element of the list variable that will contain all the data (lstPlayerHandsInfoAll)
-                    ia.lstHandPlayerInfo = lstHandPlayerInfo;
-                    ia.lstPlayerActionInfo = lstPlayerActionInfo;
-                    ia.lstBoardActionInfo = lstBoardActionInfo;
-                }
+                // Save the newly found handPlayers info, playerActions info and boardActions info to the current
+                // element of the list variable that will contain all the data (lstPlayerHandsInfoAll)
+                ia.lstHandPlayerInfo = lstHandPlayerInfo_;
+                ia.lstPlayerActionInfo = lstPlayerActionInfo_;
+                ia.lstBoardActionInfo = lstBoardActionInfo_;
             }
 
-            return lstPlayerHandsInfoAll;
+            return lstPlayerHandsInfoAll_;
         }
 
         #endregion
@@ -576,6 +612,35 @@ namespace BOL_Companion
             }
 
             return blnSuccess;
+        }
+
+        #endregion
+
+        #region Clear all database data
+
+        public bool ClearAllDbData()
+        {
+            bool blnSucess = false;
+
+            using (Bol_Model_DBEntities ctx = new Bol_Model_DBEntities())
+            {
+                ctx.Database.ExecuteSqlCommand("delete from BoardAction");
+                ctx.Database.ExecuteSqlCommand("dbcc CHECKIDENT (BoardAction, RESEED, 0)");
+                ctx.Database.ExecuteSqlCommand("delete from PlayerAction");
+                ctx.Database.ExecuteSqlCommand("dbcc CHECKIDENT (PlayerAction, RESEED, 0)");
+                ctx.Database.ExecuteSqlCommand("delete from HandPlayer");
+                ctx.Database.ExecuteSqlCommand("dbcc CHECKIDENT (HandPlayer, RESEED, 0)");
+                ctx.Database.ExecuteSqlCommand("delete from Hand");
+                ctx.Database.ExecuteSqlCommand("dbcc CHECKIDENT (Hand, RESEED, 0)");
+                ctx.Database.ExecuteSqlCommand("delete from Player");
+                ctx.Database.ExecuteSqlCommand("dbcc CHECKIDENT (Player, RESEED, 0)");
+                ctx.Database.ExecuteSqlCommand("delete from Game");
+                ctx.Database.ExecuteSqlCommand("dbcc CHECKIDENT (Game, RESEED, 0)");
+
+                blnSucess = true;
+            }
+
+            return blnSucess;
         }
 
         #endregion
