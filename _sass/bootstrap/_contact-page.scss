@@ -1,0 +1,21 @@
+//
+// Styles for Contact page
+// --------------------------------------------------
+
+p > a.contact-icon {
+  color: $navbar-default-bg;
+
+  &:hover,
+  &:focus {
+    color: $navbar-default-link-color;
+  }
+}
+
+p > a.contact-link {
+  color: $navbar-default-link-active-bg;
+
+  &:hover,
+  &:focus {
+    color: $navbar-default-bg;
+  }
+}
