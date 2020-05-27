@@ -11,7 +11,7 @@ sectionid: README
 
 ## Summary
 
-This is an application designed to provide someone playing an online poker game with additional data to help them make better decisions. It keeps track of all the actions of the opponents the user plays with and when it is the user's turn to act it presents the user with data about how the other players at the current table have played in the past to help give the user a better idea of if their opponents are bluffing or if their opponents might fold to a bluff. There is also a testing mode where you can use screenshots taken from a previous game to simulate how the  application would run if you were playing a live game. A youtube video demonstrating the use of the app is available <a href="{{ site.youtube-demo-address }}">here</a>.
+This is an application designed to provide someone playing an online poker game with additional data to help them make better decisions. It keeps track of all the actions of the opponents the user plays with and when it is the user's turn to act it presents the user with data about how the other players at the current table have played in the past to help give the user a better idea of if their opponents are bluffing or if their opponents might fold to a bluff. There is also a testing mode where you can use screenshots taken from a previous game to simulate how the  application would run if you were playing a live game. A YouTube video demonstrating the use of the app is available <a href="{{ site.youtube-demo-address }}">here</a>.
 
 ---
 
@@ -126,7 +126,7 @@ Figure 4 shows what the Data Display window looks like after data has been proce
 ### Screenshots Mode
 This mode allows you to run the application based on screenshots taken during a previously played game of [Texas hold'em](https://en.wikipedia.org/wiki/Texas_hold_%27em) played on the [BetOnline poker app](https://www.betonline.ag/poker). It processes data, saves that data to the database and displays relevant data when it is the player of interest's turn to act (the player of interest is the player you are simulating playing as). This is useful for testing the app and/or seeing how it works. A set of sample screenshots is available for download [here](https://drive.google.com/drive/folders/1OxsYO1-d62ApR8LdqRYD5E2v-ysCa8-3?usp=sharing). As you move through consecutive screenshots you will see the screenshot displayed in the Control window as well as  the game status and the actions taking place. The game status and game actions are also saved to the database.
 
-A youtube video demonstrating the app running in screenshots mode is available <a href="{{ site.youtube-demo-address }}">here</a>.
+A YouTube video demonstrating the app running in screenshots mode is available <a href="{{ site.youtube-demo-address }}">here</a>.
 
 Screenshots mode is designed to be run with the Control window on one monitor and the Data Display window on a second monitor as shown in Figure 5. The screenshots that are being processed are displayed in the Control window as shown in Figure 5. The relevant data about previous player actions is displayed in the Data Display window when it is the player of interest's turn to act.<br/><br/>
 
