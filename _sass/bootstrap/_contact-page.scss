@@ -11,6 +11,10 @@ p > a.contact-icon {
   }
 }
 
+p > a.contact-link-multi-line {
+  word-break: break-all;
+}
+
 p > a.contact-link {
   color: $navbar-default-link-active-bg;
 
