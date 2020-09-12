@@ -4,10 +4,16 @@ using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using BOL_Companion.DbDataStructures;
+using BOL_Companion.DataAnalyzerDataStructures;
 using static BOL_Companion.DbController;
+using System.Windows.Forms;
 
 namespace BOL_Companion
 {
+    /// <summary>
+    /// A class that translates data saved in the database into poker actions and plots that data.
+    /// </summary>
     class DataAnalyzer
     {
         public DataAnalyzer()
@@ -17,379 +23,177 @@ namespace BOL_Companion
 
         #region Public Methods
 
-        public DataCounter AnalyzePlayerData(List<DbPlayerHandInfoAll> lstAllPlayerData, int intCurrGameId, int intCurrNumPlayers, long lngPlayerofInterestHandPlayerId)
+        /// <summary>
+        /// Translate the data saved in the database into a collection poker actions organized by the hand circumstances and the betting rounds in which those actions took place.
+        /// </summary>
+        /// <param name="allPlayerDataList">A list of all the DbPlayerHandInfoAll collections to be analyzed for a single player</param>
+        /// <param name="currGameId">The game Id of the current game</param>
+        /// <param name="currNumPlayers">The current number of players at the poker table</param>
+        /// <param name="playerOfInterestHandPlayerId">The current HandPlayerId of the player running this app (the user)</param>
+        /// <returns>The collection of all the poker actions taken by the player organized by the hand circumstances and the betting rounds in which those actions took place</returns>
+        public DataCounter AnalyzePlayerData(List<DbPlayerHandInfoAll> allPlayerDataList, int currGameId, int currNumPlayers, long playerOfInterestHandPlayerId)
         {
-            //Pre-Flop
-            bool blnBlindExists, blnFirstFlopAction, blnFirstTurnAction, blnFirstRiverAction, blnPreFlopCheck, blnPreFlopBetMade, 
-                blnFlopBetMade, blnTurnBetMade, blnRiverBetMade, blnFolded;
-            int intCurrPlayerIndex, intFlopActionNum, intTurnActionNum, intRiverActionNum, intFirstPlayerToActIndex;
-            int[] intChipsInPot, intPlayerChipStackStart, intBlindPlayerIndices;
-            DataCounter cnt;
+            // action log is the record of all the player of interest's actions
+            DataCounter actionLog = new DataCounter();
 
-            // intChipsInPot is how many chips each player has in the pot (assuming 10 players per table max)
-            intChipsInPot = new int[10];
-            // intPlayerChipStackStart is how many chips each player has at the beginning of the hand (assuming 10 players per table max)
-            intPlayerChipStackStart = new int[10];
-            // intBlindPlayerIndicies are the indicies of the two blind players
-            intBlindPlayerIndices = new int[2];
-
-            cnt = new DataCounter();
-
-            // Zero out this array. I added this loop after this method was already working but after reviewing i decided to add it just in case.
-            for (int i = 0; i < intChipsInPot.Length; i++)
+            // A single DbPlayerHandInfoAll represents all the info about one hand for one player. 
+            // The List<DbPlayerHandInfoAll> (allPlayerDataList) represents all the hands that player has been involved in therefore each iteration 
+            // of this loop represents one hand.
+            foreach (DbPlayerHandInfoAll hand in allPlayerDataList)
             {
-                intChipsInPot[i] = 0;
-                intPlayerChipStackStart[i] = 0;
-            }
-
-            // Loop for each hand 
-            // [DbPlayerHandInfoAll represents all the info from one hand. This List<DbPlayerHandInfoAll> represents all the hands that 
-            // player has been involved in] 
-            foreach (DbPlayerHandInfoAll hi in lstAllPlayerData)
-            {
-                blnBlindExists = false;
-
-                // Check to make sure at least one player posted a blind this hand. 
-                // If no blinds this is an incomplete hand -> ignore it (we don't have the data starting from the beginning of the hand)
-                foreach (DbHandPlayerInfo hp in hi.lstHandPlayerInfo)
+                // If no blinds were posted this is an incomplete hand -> ignore it (we don't have the data starting from the beginning of the hand)
+                if (BlindExists(hand))
                 {
-                    if (hp.intBlind > 0)
+                    // A blind player exists (we have the full hand data available in the DB) -> move foward processing the data for this hand)
+
+                    // The hand action number of the flop
+                    int flopActionNum;
+                    // The hand action number of the turn
+                    int turnActionNum;
+                    // The hand action number of the river
+                    int riverActionNum;
+
+                    // The default number for the board card action numbers. Setting the board card action number to a high number
+                    // translates to the board card never being dealt.
+                    int defaultBoardCardActionNum = 100000;
+
+                    GetBoardCardActionNumbers(hand, defaultBoardCardActionNum, out flopActionNum, out turnActionNum, out riverActionNum);
+
+                    // Assuming 10 players per poker table max
+                    int maxPlayersPerTable = 10;
+
+                    // playerChipsInPot is the number of chips each player has in the pot
+                    int[] playerChipsInPot = new int[maxPlayersPerTable];
+
+                    // playerChipStackStart is the number of chips each player has at the beginning of the hand (before blinds and antes)
+                    int[] playerChipStackStart = new int[maxPlayersPerTable];
+
+                    // blindPlayerIndices are the indices of the two blind players
+                    int[] blindPlayerIndices = { -1, -1 };
+
+                    // playerOfInterestIndex is the index of the player of interest
+                    int playerOfInterestIndex = InitializeHandStartingConditions(hand, playerChipsInPot, playerChipStackStart, blindPlayerIndices);
+
+                    if (UnfinishedHand(hand))
                     {
-                        blnBlindExists = true;
-                        break;
-                    }
-                }
-
-                // A blind player exists (we have the full hand data available in the DB) -> move foward with getting data 
-                if (blnBlindExists)
-                {
-                    intFlopActionNum = 100000;
-                    intTurnActionNum = 100000;
-                    intRiverActionNum = 100000;
-
-                    // Find intFlopActionNum, intTurnActionNum and intRiverActionNum to determine when the pre-flop, 
-                    // flop, turn and river actions
-                    for (int i = 0; i < hi.lstBoardActionInfo.Count; i++)
-                    {
-                        if (i == 0)
+                        for (int i = 0; i < hand.HandPlayerInfoList.Count; i++)
                         {
-                            intFlopActionNum = hi.lstBoardActionInfo[i].intHandActionNumber;
-                        }
-                        else if (i == 3)
-                        {
-                            intTurnActionNum = hi.lstBoardActionInfo[i].intHandActionNumber;
-                        }
-                        else if (i == 4)
-                        {
-                            intRiverActionNum = hi.lstBoardActionInfo[i].intHandActionNumber;
-                        }
-                    }
-
-                    blnFolded = false;
-                    blnPreFlopBetMade = false;
-                    blnFlopBetMade = false;
-                    blnTurnBetMade = false;
-                    blnRiverBetMade = false;
-                    intCurrPlayerIndex = -1;
-                    intBlindPlayerIndices[0] = -1;
-                    intBlindPlayerIndices[1] = -1;
-
-                    // Initialize the intChipsInPot array
-                    // Note: I am only initializing the intChipsInPot array elements for the players who are actually in the hand
-                    // Also find the player of interest's starting chip stack.
-                    // Also find the indices of the blind players (i will use that info later to determine the first player to act)
-                    for (int i = 0; i < hi.lstHandPlayerInfo.Count; i++)
-                    {
-                        intChipsInPot[i] = hi.lstHandPlayerInfo[i].intBlind + hi.HandInfo.intAnte;
-                        intPlayerChipStackStart[i] = hi.lstHandPlayerInfo[i].intChipCountStart;
-
-                        if (hi.HandInfo.lngHandPlayerId == hi.lstHandPlayerInfo[i].lngHandPlayerId)
-                        {
-                            intCurrPlayerIndex = i;
-                        }
-
-                        if (hi.lstHandPlayerInfo[i].intBlind > 0)
-                        {
-                            if (intBlindPlayerIndices[0] == -1) 
+                            // Check to see if this is the hand currently in progress (use playerOfInterestHandPlayerId which is the user's
+                            // HandPlayerId for the hand in progress)
+                            if (hand.HandPlayerInfoList[i].HandPlayerId == playerOfInterestHandPlayerId)
                             {
-                                intBlindPlayerIndices[0] = i;
-                            }
-                            else
-                            {
-                                intBlindPlayerIndices[1] = i;
-                            }
-                        }
-                    }
-
-                    // Check to make sure this hand has a winner (i.e. the hand ended with someone gaining chips which is signified by a 
-                    // negative intChipCountChange number). First I will check to make sure hi.lstPlayerActionInfo.Count > 0 to avoid an error
-                    // in the if statement here. If hi.lstPlayerActionInfo.Count == 0 no need to worry about the code below because it means
-                    // this is pre-flop and the player of interest is the first player to act so nothing has happened so far this hand.
-                    if (hi.lstPlayerActionInfo.Count > 0 && hi.lstPlayerActionInfo[hi.lstPlayerActionInfo.Count - 1].intChipCountChange >= 0)
-                    {
-                        // Check to make sure this is the current hand
-
-                        for (int i = 0; i < hi.lstHandPlayerInfo.Count; i++)
-                        {
-                            // check to see if this is the hand currently in progress (use lngPlayerofInterestHandPlayerId which is the player
-                            // of interest's HandPlayerId for the hand in progress)
-                            if (hi.lstHandPlayerInfo[i].lngHandPlayerId == lngPlayerofInterestHandPlayerId)
-                            {
-                                // This is the hand currently in progress and the hand has not been completed
-
-                                int intNextHandActionNumber = 0;
-                                int intLargeBet = 1000000000;
-
-                                // Find the correct next hand action number. If the last action was a player action the next hand action number
-                                // will be lstPlayerActionInfo.Count. However, if the last action was another board card being shown then the
-                                // next hand action number is either intFlopActionNumber + 1, intTurnActionNumber + 1 or intRiverActionNumber + 1
-
-                                // First find latest board action
-                                if (intRiverActionNum < 100000)
-                                {
-                                    intNextHandActionNumber = intRiverActionNum + 1;
-                                }
-                                else if (intTurnActionNum < 100000)
-                                {
-                                    intNextHandActionNumber = intTurnActionNum + 1;
-                                }
-                                else if (intFlopActionNum < 100000)
-                                {
-                                    intNextHandActionNumber = intFlopActionNum + 1;
-                                }
-
-                                // Now see if the latest hand action was more recent
-                                if (hi.lstPlayerActionInfo.Count > intNextHandActionNumber)
-                                {
-                                    intNextHandActionNumber = hi.lstPlayerActionInfo.Count;
-                                }
-
-                                // It is the player of interest's (lngPlayerOfInterestHandPlayerId) turn in the hand currently in progress.
-                                // Add a large bet HandPlayerAction to the current DbHandPlayerInfoAll for the player of interest so that
-                                // players who checked before this player will have there actions counted.
-                                hi.lstPlayerActionInfo.Add(new DbPlayerActionInfo
-                                {
-                                    lngHandPlayerId = lngPlayerofInterestHandPlayerId,
-                                    intChipCountChange = intLargeBet,
-                                    intHandActionNumber = intNextHandActionNumber
-                                });
-
-                                // Add the same large bet to the player's initial chip count to prevent issues that might arise with pre-flop
-                                // call/bet minimums and all-in issues in the code
-                                hi.lstHandPlayerInfo[i].intChipCountStart += intLargeBet;
-
-                                // If the current player (hi.HandInfo.lngHandPlayerId) is the player of interest 
-                                // (lngPlayerOfInterestHandPlayerId) subtract 1 fold from his DataCounter structure
-                                if (hi.HandInfo.lngHandPlayerId == lngPlayerofInterestHandPlayerId)
-                                {
-                                    // Find out if this is a pre-flop, flop, turn or river fold
-                                    if (intRiverActionNum < 100000)
-                                    {
-                                        // We already know this is the current hand in progress so it is "This Table" and it is also
-                                        // "Curr Number of Players"
-                                        cnt.cirRiver.actAnyTableAnyNumPlayers.lngBet -= 1;
-                                        cnt.cirRiver.actThisTableAnyNumPlayers.lngBet -= 1;
-                                        cnt.cirRiver.actAnyTableCurrNumPlayers.lngBet -= 1;
-                                        cnt.cirRiver.actThisTableCurrNumPlayers.lngBet -= 1;
-                                    }
-                                    else if (intTurnActionNum < 100000)
-                                    {
-                                        // We already know this is the current hand in progress so it is "This Table" and it is also
-                                        // "Curr Number of Players"
-                                        cnt.cirTurn.actAnyTableAnyNumPlayers.lngBet -= 1;
-                                        cnt.cirTurn.actThisTableAnyNumPlayers.lngBet -= 1;
-                                        cnt.cirTurn.actAnyTableCurrNumPlayers.lngBet -= 1;
-                                        cnt.cirTurn.actThisTableCurrNumPlayers.lngBet -= 1;
-                                    }
-                                    else if (intFlopActionNum < 100000)
-                                    {
-                                        // We already know this is the current hand in progress so it is "This Table" and it is also
-                                        // "Curr Number of Players"
-                                        cnt.cirFlop.actAnyTableAnyNumPlayers.lngBet -= 1;
-                                        cnt.cirFlop.actThisTableAnyNumPlayers.lngBet -= 1;
-                                        cnt.cirFlop.actAnyTableCurrNumPlayers.lngBet -= 1;
-                                        cnt.cirFlop.actThisTableCurrNumPlayers.lngBet -= 1;
-                                    }
-                                    else
-                                    {
-                                        // We already know this is the current hand in progress so it is "This Table" and it is also
-                                        // "Curr Number of Players"
-                                        cnt.cirPreFlop.actAnyTableAnyNumPlayers.lngBet -= 1;
-                                        cnt.cirPreFlop.actThisTableAnyNumPlayers.lngBet -= 1;
-                                        cnt.cirPreFlop.actAnyTableCurrNumPlayers.lngBet -= 1;
-                                        cnt.cirPreFlop.actThisTableCurrNumPlayers.lngBet -= 1;
-                                    }
-                                }
-
+                                ModifyDataToProcessHandInProgress(hand, actionLog, flopActionNum, turnActionNum, riverActionNum, playerOfInterestHandPlayerId);
                                 break;
                             }
                         }
                     }
 
-                    // Figure out who is the first player to act (the first player to post a blind)
-                    if (intBlindPlayerIndices[1] == -1)
-                    {
-                        intFirstPlayerToActIndex = intBlindPlayerIndices[0];
-                    }
-                    else
-                    {
-                        // if there are more than two players left
-                        if (hi.lstHandPlayerInfo.Count > 2)
-                        {
-                            // The first sequential player is always the first to act unless the first and the last player in the
-                            // sequence were the two blinds. In this case the last sequential player was the first to act.
-                            if (!(intBlindPlayerIndices[0] == 0 && intBlindPlayerIndices[1] == hi.lstHandPlayerInfo.Count - 1))
-                            {
-                                intFirstPlayerToActIndex = intBlindPlayerIndices[0];
-                            }
-                            else
-                            {
-                                intFirstPlayerToActIndex = intBlindPlayerIndices[1];
-                            }
-                        }
-                        // only two players are left
-                        else
-                        {
-                            // Here i will assume the player who posted the bigger blind is the dealer -> the other player is the first to act.
-                            // This may not be true under the special circumstance that the dealer is all in and has less chips than the small
-                            // blind. This is very unlikely but possible. 
-                            if (hi.lstHandPlayerInfo[0].intBlind > hi.lstHandPlayerInfo[1].intBlind)
-                            {
-                                intFirstPlayerToActIndex = 1;
-                            }
-                            else
-                            {
-                                intFirstPlayerToActIndex = 0;
-                            }
-                        }
-                    }
+                    // firstPlayerToActIndex is the index of the first player to act in this hand
+                    int firstPlayerToActIndex = FindFirstPlayerToActIndex(hand, blindPlayerIndices);
 
-                    blnPreFlopCheck = true;
-                    blnFirstFlopAction = true;
-                    blnFirstTurnAction = true;
-                    blnFirstRiverAction = true;
+                    // Has the player of interested folded
+                    bool playerOfInterestFolded = false;
 
-                    // Go through each player action in this hand but only log actions for plotting if 
-                    // hi.HandInfo.lngHandPlayerId == hi.lstPlayerActionInfo[i].lngHandPlayerId
-                    // else just keep track of how many chips each player has in the pot
-                    for (int i = 0; i < hi.lstPlayerActionInfo.Count; i++)
+                    // Does a preflop check need to be logged for the player of interest
+                    bool logPlayerOfInterestPreFlopCheck = true;
+
+                    // This is the first bet, call or fold action on the flop
+                    bool isFirstFlopAction = true;
+                    // This is the first bet, call or fold action on the turn
+                    bool isFirstTurnAction = true;
+                    // This is the first bet, call or fold action on the river
+                    bool isFirstRiverAction = true;
+
+                    // Did any player bet preflop
+                    bool preFlopBetMade = false;
+                    // Has there been at least one player action (bet, call, check or fold) logged for the flop
+                    bool flopActionTaken = false;
+                    // Has there been at least one player action (bet, call, check or fold) logged for the turn
+                    bool turnActionTaken = false;
+                    // Has there been at least one player action (bet, call, check or fold) logged for the river
+                    bool riverActionTaken = false;
+
+                    // Go through each player action in this hand but only log actions for plotting if the action was performed by the player of interest
+                    // (hand.HandInfo.HandPlayerId == hand.PlayerActionInfoList[i].HandPlayerId)
+                    // else just keep track of how many chips each player has in the pot.
+                    for (int i = 0; i < hand.PlayerActionInfoList.Count; i++)
                     {
-                        if (!blnFolded)
+                        // No need to continue processing player actions if the player of interest has already folded because we are only tracking the
+                        // actions of the player of interest
+                        if (!playerOfInterestFolded)
                         {
                             // Pre-Flop action
-                            if (hi.lstPlayerActionInfo[i].intHandActionNumber < intFlopActionNum)
+                            if (hand.PlayerActionInfoList[i].HandActionNumber < flopActionNum)
                             {
-                                if (ProcessPlayerAciton(hi, i, intChipsInPot, intCurrGameId, intCurrNumPlayers, cnt.cirPreFlop,
-                                    intFirstPlayerToActIndex, intCurrPlayerIndex, intPlayerChipStackStart[intCurrPlayerIndex], ref blnPreFlopBetMade, ref blnFolded, true))
+                                if (ProcessPlayerAciton(hand, i, playerChipsInPot, currGameId, currNumPlayers, actionLog.Preflop,
+                                    firstPlayerToActIndex, playerOfInterestIndex, playerChipStackStart[playerOfInterestIndex], ref preFlopBetMade, ref playerOfInterestFolded, true))
                                 {
-                                    blnPreFlopCheck = false;
+                                    logPlayerOfInterestPreFlopCheck = false;
                                 }
                             }
 
                             // Flop action
-                            else if (hi.lstPlayerActionInfo[i].intHandActionNumber < intTurnActionNum)
+                            else if (hand.PlayerActionInfoList[i].HandActionNumber < turnActionNum)
                             {
-                                if (blnFirstFlopAction)
+                                // This is a bet, call or fold action on the flop
+                                if (isFirstFlopAction)
                                 {
-                                    if (blnPreFlopCheck && !RemainingPlayersAllIn(intChipsInPot, intPlayerChipStackStart, intCurrPlayerIndex, hi.lstHandPlayerInfo.Count))
-                                    {
-                                        // Checking to see if the player is already all-in is taken care of within PlayerCheckAction
-                                        PlayerCheckAction(hi, intCurrGameId, intCurrNumPlayers, intPlayerChipStackStart[intCurrPlayerIndex],
-                                            intChipsInPot[intCurrPlayerIndex], cnt.cirPreFlop);
-                                        blnPreFlopCheck = false;
-                                    }
-                                    blnFirstFlopAction = false;
+                                    TestForPreflopCheckAction(hand, actionLog, ref logPlayerOfInterestPreFlopCheck, playerChipsInPot, playerChipStackStart,
+                                        playerOfInterestIndex, currGameId, currNumPlayers);
+
+                                    isFirstFlopAction = false;
                                 }
-                                ProcessPlayerAciton(hi, i, intChipsInPot, intCurrGameId, intCurrNumPlayers, cnt.cirFlop, intFirstPlayerToActIndex,
-                                    intCurrPlayerIndex, intPlayerChipStackStart[intCurrPlayerIndex], ref blnFlopBetMade, ref blnFolded, false);
+
+                                ProcessPlayerAciton(hand, i, playerChipsInPot, currGameId, currNumPlayers, actionLog.Flop, firstPlayerToActIndex,
+                                    playerOfInterestIndex, playerChipStackStart[playerOfInterestIndex], ref flopActionTaken, ref playerOfInterestFolded, false);
                             }
 
                             // Turn action
-                            else if (hi.lstPlayerActionInfo[i].intHandActionNumber < intRiverActionNum)
+                            else if (hand.PlayerActionInfoList[i].HandActionNumber < riverActionNum)
                             {
-                                if (blnFirstTurnAction)
+                                // This is a bet, call or fold action on the turn
+                                if (isFirstTurnAction)
                                 {
-                                    // Check to see if player checked pre-flop (and no bets were made on the flop)
-                                    if (blnPreFlopCheck && !RemainingPlayersAllIn(intChipsInPot, intPlayerChipStackStart, intCurrPlayerIndex, hi.lstHandPlayerInfo.Count))
-                                    {
-                                        // Checking to see if the player is already all-in is taken care of within PlayerCheckAction
-                                        PlayerCheckAction(hi, intCurrGameId, intCurrNumPlayers, intPlayerChipStackStart[intCurrPlayerIndex],
-                                            intChipsInPot[intCurrPlayerIndex], cnt.cirPreFlop);
-                                        blnPreFlopCheck = false;
-                                    }
+                                    TestForPreflopCheckAction(hand, actionLog, ref logPlayerOfInterestPreFlopCheck, playerChipsInPot, playerChipStackStart,
+                                        playerOfInterestIndex, currGameId, currNumPlayers);
 
-                                    if (!blnFlopBetMade && !RemainingPlayersAllIn(intChipsInPot, intPlayerChipStackStart, intCurrPlayerIndex, hi.lstHandPlayerInfo.Count))
-                                    {
-                                        // Checking to see if the player is already all-in is taken care of within PlayerCheckAction
-                                        PlayerCheckAction(hi, intCurrGameId, intCurrNumPlayers, intPlayerChipStackStart[intCurrPlayerIndex],
-                                            intChipsInPot[intCurrPlayerIndex], cnt.cirFlop);
-                                    }
-                                    blnFirstTurnAction = false;
+                                    TestForFlopCheckAction(hand, actionLog, ref flopActionTaken, playerChipsInPot, playerChipStackStart,
+                                        playerOfInterestIndex, currGameId, currNumPlayers);
+
+                                    isFirstTurnAction = false;
                                 }
 
-                                ProcessPlayerAciton(hi, i, intChipsInPot, intCurrGameId, intCurrNumPlayers, cnt.cirTurn, intFirstPlayerToActIndex,
-                                    intCurrPlayerIndex, intPlayerChipStackStart[intCurrPlayerIndex], ref blnTurnBetMade, ref blnFolded, false);
+                                ProcessPlayerAciton(hand, i, playerChipsInPot, currGameId, currNumPlayers, actionLog.Turn, firstPlayerToActIndex,
+                                    playerOfInterestIndex, playerChipStackStart[playerOfInterestIndex], ref turnActionTaken, ref playerOfInterestFolded, false);
                             }
 
                             // River action
                             else
                             {
-                                if (blnFirstRiverAction)
+                                // This is a bet, call, fold or pot winning action on the river
+                                if (isFirstRiverAction)
                                 {
-                                    // Check to see if player checked pre-flop (and no bets were made on the flop or the turn)
-                                    if (blnPreFlopCheck && !RemainingPlayersAllIn(intChipsInPot, intPlayerChipStackStart, intCurrPlayerIndex, hi.lstHandPlayerInfo.Count))
-                                    {
-                                        // Checking to see if the player is already all-in is taken care of within PlayerCheckAction
-                                        PlayerCheckAction(hi, intCurrGameId, intCurrNumPlayers, intPlayerChipStackStart[intCurrPlayerIndex],
-                                            intChipsInPot[intCurrPlayerIndex], cnt.cirPreFlop);
-                                        blnPreFlopCheck = false;
-                                    }
+                                    TestForPreflopCheckAction(hand, actionLog, ref logPlayerOfInterestPreFlopCheck, playerChipsInPot, playerChipStackStart,
+                                        playerOfInterestIndex, currGameId, currNumPlayers);
 
-                                    if (!blnTurnBetMade && !RemainingPlayersAllIn(intChipsInPot, intPlayerChipStackStart, intCurrPlayerIndex, hi.lstHandPlayerInfo.Count))
-                                    {
-                                        // Checking to see if the player is already all-in is taken care of within PlayerCheckAction
-                                        PlayerCheckAction(hi, intCurrGameId, intCurrNumPlayers, intPlayerChipStackStart[intCurrPlayerIndex],
-                                            intChipsInPot[intCurrPlayerIndex], cnt.cirTurn);
-                                    }
-                                    blnFirstRiverAction = false;
+                                    TestForFlopCheckAction(hand, actionLog, ref flopActionTaken, playerChipsInPot, playerChipStackStart,
+                                        playerOfInterestIndex, currGameId, currNumPlayers);
 
+                                    TestForTurnCheckAction(hand, actionLog, ref turnActionTaken, playerChipsInPot, playerChipStackStart,
+                                        playerOfInterestIndex, currGameId, currNumPlayers);
+
+                                    isFirstRiverAction = false;
                                 }
 
-                                // Check to see if player checked pre-flop (and no bets were made on the flop, the turn or the river)
-                                if (blnPreFlopCheck && !RemainingPlayersAllIn(intChipsInPot, intPlayerChipStackStart, intCurrPlayerIndex, hi.lstHandPlayerInfo.Count))
+                                // This is the last action of the hand (also note that this player action is occuring on the river)
+                                if (i == hand.PlayerActionInfoList.Count - 1)
                                 {
-                                    // Checking to see if the player is already all-in is taken care of within PlayerCheckAction
-                                    PlayerCheckAction(hi, intCurrGameId, intCurrNumPlayers, intPlayerChipStackStart[intCurrPlayerIndex],
-                                        intChipsInPot[intCurrPlayerIndex], cnt.cirPreFlop);
-                                    blnPreFlopCheck = false;
+                                    TestForRiverCheckAction(hand, actionLog, ref riverActionTaken, playerChipsInPot, playerChipStackStart,
+                                        playerOfInterestIndex, currGameId, currNumPlayers);
                                 }
 
-                                // This (blnFirstTurnAction) check is needed in case the flop and the turn were checked by all players. We have to go back and
-                                // and register the players' check calls on the turn.
-                                if (blnFirstTurnAction)
-                                {
-                                    if (!blnFlopBetMade && !RemainingPlayersAllIn(intChipsInPot, intPlayerChipStackStart, intCurrPlayerIndex, hi.lstHandPlayerInfo.Count))
-                                    {
-                                        // Checking to see if the player is already all-in is taken care of within PlayerCheckAction
-                                        PlayerCheckAction(hi, intCurrGameId, intCurrNumPlayers, intPlayerChipStackStart[intCurrPlayerIndex],
-                                            intChipsInPot[intCurrPlayerIndex], cnt.cirFlop);
-                                    }
-                                    blnFirstTurnAction = false;
-                                }
-
-                                // Last player action of this hand (also note that this player action is occuring on the river)
-                                if (i == hi.lstPlayerActionInfo.Count - 1)
-                                {
-                                    if (!blnRiverBetMade && !RemainingPlayersAllIn(intChipsInPot, intPlayerChipStackStart, intCurrPlayerIndex, hi.lstHandPlayerInfo.Count))
-                                    {
-                                        // Checking to see if the player is already all-in is taken care of within PlayerCheckAction
-                                        PlayerCheckAction(hi, intCurrGameId, intCurrNumPlayers, intPlayerChipStackStart[intCurrPlayerIndex],
-                                            intChipsInPot[intCurrPlayerIndex], cnt.cirRiver);
-                                    }
-                                }
-
-                                ProcessPlayerAciton(hi, i, intChipsInPot, intCurrGameId, intCurrNumPlayers, cnt.cirRiver, intFirstPlayerToActIndex,
-                                    intCurrPlayerIndex, intPlayerChipStackStart[intCurrPlayerIndex], ref blnRiverBetMade, ref blnFolded, false);
+                                ProcessPlayerAciton(hand, i, playerChipsInPot, currGameId, currNumPlayers, actionLog.River, firstPlayerToActIndex,
+                                    playerOfInterestIndex, playerChipStackStart[playerOfInterestIndex], ref riverActionTaken, ref playerOfInterestFolded, false);
                             }
                         }
                         else
@@ -399,960 +203,972 @@ namespace BOL_Companion
                     }
                 }
             }
-            return cnt;
+            return actionLog;
         }
 
         /// <summary>
-        /// Plot the data contained in the DataCounter class on the specified chart set
+        /// Plot a set of charts (4 charts) with the action data contained in the HandCircumstances object.
         /// </summary>
-        /// <param name="intChartSetIndex">The index of the set of 4 charts representing the data for one player (an integer 0-9)</param>
-        /// <param name="cntPlayerData_">All the player's relevent data</param>
-        /// <param name="frm"></param>
-        public void PlotPlayerDataPreFlop(int intChartSetIndex, DataCounter cntPlayerData_, frmDataDisplay frm)
+        /// <param name="bettingRoundData">All the action data from a single betting round for a single player</param>
+        /// <param name="chartSetToUpdate_">The set of charts to plot the data on</param>
+        /// <param name="chartSetNoDataLabels_">The set of "No Data" lables for the chart set</param>
+        /// <param name="chartSetSampleCount_">The set of sample count labels for the chart set</param>
+        /// <param name="isChartSetUpdated_">The set of boolean chart updated variables for the chart set</param>
+        public void PlotChartSet(HandCircumstances bettingRoundData, MyChart[] chartSetToUpdate_, Label[] chartSetNoDataLabels_,
+            Label[] chartSetSampleCount_, bool[] isChartSetUpdated_)
         {
-            long lngSamplecount;
+            // Chart for "This Table Current Number of Players"
+            PlotChart(bettingRoundData.ThisTableCurrNumPlayers, chartSetToUpdate_[DataDisplayForm.ThisTableCurrNumPlayersIndex],
+                chartSetNoDataLabels_[DataDisplayForm.ThisTableCurrNumPlayersIndex], chartSetSampleCount_[DataDisplayForm.ThisTableCurrNumPlayersIndex],
+                ref isChartSetUpdated_[DataDisplayForm.ThisTableCurrNumPlayersIndex]);
 
-            // This Table - Current Num. Players Chart
-            lngSamplecount = DataSampleCount(cntPlayerData_.cirPreFlop.actThisTableCurrNumPlayers);
-            if (lngSamplecount > 0)
-            {
-                frm.chtQuad[intChartSetIndex][0].Series[0].Points[0].Color = Color.SpringGreen;
+            // Chart for "This Table Any Number of Players"
+            PlotChart(bettingRoundData.ThisTableAnyNumPlayers, chartSetToUpdate_[DataDisplayForm.ThisTableAnyNumPlayersIndex],
+                chartSetNoDataLabels_[DataDisplayForm.ThisTableAnyNumPlayersIndex], chartSetSampleCount_[DataDisplayForm.ThisTableAnyNumPlayersIndex],
+                ref isChartSetUpdated_[DataDisplayForm.ThisTableAnyNumPlayersIndex]);
 
-                frm.chtQuad[intChartSetIndex][0].Series[0].Points[0].SetValueXY(GetPiePercentage(cntPlayerData_.cirPreFlop.actThisTableCurrNumPlayers, 0),
-                    cntPlayerData_.cirPreFlop.actThisTableCurrNumPlayers.lngFold);
-                frm.chtQuad[intChartSetIndex][0].Series[0].Points[1].SetValueXY(GetPiePercentage(cntPlayerData_.cirPreFlop.actThisTableCurrNumPlayers, 1),
-                    cntPlayerData_.cirPreFlop.actThisTableCurrNumPlayers.lngCheck);
-                frm.chtQuad[intChartSetIndex][0].Series[0].Points[2].SetValueXY(GetPiePercentage(cntPlayerData_.cirPreFlop.actThisTableCurrNumPlayers, 2),
-                    cntPlayerData_.cirPreFlop.actThisTableCurrNumPlayers.lngCall);
-                frm.chtQuad[intChartSetIndex][0].Series[0].Points[3].SetValueXY(GetPiePercentage(cntPlayerData_.cirPreFlop.actThisTableCurrNumPlayers, 3),
-                    cntPlayerData_.cirPreFlop.actThisTableCurrNumPlayers.lngBet);
+            // Chart for "Any Table Current Number of Players"
+            PlotChart(bettingRoundData.AnyTableCurrNumPlayers, chartSetToUpdate_[DataDisplayForm.AnyTableCurrNumPlayersIndex],
+                chartSetNoDataLabels_[DataDisplayForm.AnyTableCurrNumPlayersIndex], chartSetSampleCount_[DataDisplayForm.AnyTableCurrNumPlayersIndex],
+                ref isChartSetUpdated_[DataDisplayForm.AnyTableCurrNumPlayersIndex]);
 
-                frm.lblChartNoData[intChartSetIndex][0].Visible = false;
-            }
-            else
-            {
-                NoDataChart(intChartSetIndex, 0, frm);
-            }
-            frm.lblChartSampleCount[intChartSetIndex][0].Text = lngSamplecount.ToString();
-
-            frm.blnChtUpdated[intChartSetIndex][0] = true;
-            //frm.chtQuad[intChartSetIndex][0].Invalidate();
-
-            // This Table - Any Num. Players Chart
-            lngSamplecount = DataSampleCount(cntPlayerData_.cirPreFlop.actThisTableAnyNumPlayers);
-            if (lngSamplecount > 0)
-            {
-                frm.chtQuad[intChartSetIndex][1].Series[0].Points[0].Color = Color.SpringGreen;
-
-                frm.chtQuad[intChartSetIndex][1].Series[0].Points[0].SetValueXY(GetPiePercentage(cntPlayerData_.cirPreFlop.actThisTableAnyNumPlayers, 0),
-                    cntPlayerData_.cirPreFlop.actThisTableAnyNumPlayers.lngFold);
-                frm.chtQuad[intChartSetIndex][1].Series[0].Points[1].SetValueXY(GetPiePercentage(cntPlayerData_.cirPreFlop.actThisTableAnyNumPlayers, 1),
-                    cntPlayerData_.cirPreFlop.actThisTableAnyNumPlayers.lngCheck);
-                frm.chtQuad[intChartSetIndex][1].Series[0].Points[2].SetValueXY(GetPiePercentage(cntPlayerData_.cirPreFlop.actThisTableAnyNumPlayers, 2),
-                    cntPlayerData_.cirPreFlop.actThisTableAnyNumPlayers.lngCall);
-                frm.chtQuad[intChartSetIndex][1].Series[0].Points[3].SetValueXY(GetPiePercentage(cntPlayerData_.cirPreFlop.actThisTableAnyNumPlayers, 3),
-                    cntPlayerData_.cirPreFlop.actThisTableAnyNumPlayers.lngBet);
-
-                frm.lblChartNoData[intChartSetIndex][1].Visible = false;
-            }
-            else
-            {
-                NoDataChart(intChartSetIndex, 1, frm);
-            }
-            frm.lblChartSampleCount[intChartSetIndex][1].Text = lngSamplecount.ToString();
-
-            frm.blnChtUpdated[intChartSetIndex][1] = true;
-            //frm.chtQuad[intChartSetIndex][1].Invalidate();
-
-            // Any Table - Current Num. Players Chart
-            lngSamplecount = DataSampleCount(cntPlayerData_.cirPreFlop.actAnyTableCurrNumPlayers);
-            if (lngSamplecount > 0)
-            {
-                frm.chtQuad[intChartSetIndex][2].Series[0].Points[0].Color = Color.SpringGreen;
-
-                frm.chtQuad[intChartSetIndex][2].Series[0].Points[0].SetValueXY(GetPiePercentage(cntPlayerData_.cirPreFlop.actAnyTableCurrNumPlayers, 0),
-                    cntPlayerData_.cirPreFlop.actAnyTableCurrNumPlayers.lngFold);
-                frm.chtQuad[intChartSetIndex][2].Series[0].Points[1].SetValueXY(GetPiePercentage(cntPlayerData_.cirPreFlop.actAnyTableCurrNumPlayers, 1),
-                    cntPlayerData_.cirPreFlop.actAnyTableCurrNumPlayers.lngCheck);
-                frm.chtQuad[intChartSetIndex][2].Series[0].Points[2].SetValueXY(GetPiePercentage(cntPlayerData_.cirPreFlop.actAnyTableCurrNumPlayers, 2),
-                    cntPlayerData_.cirPreFlop.actAnyTableCurrNumPlayers.lngCall);
-                frm.chtQuad[intChartSetIndex][2].Series[0].Points[3].SetValueXY(GetPiePercentage(cntPlayerData_.cirPreFlop.actAnyTableCurrNumPlayers, 3),
-                    cntPlayerData_.cirPreFlop.actAnyTableCurrNumPlayers.lngBet);
-
-                frm.lblChartNoData[intChartSetIndex][2].Visible = false;
-            }
-            else
-            {
-                NoDataChart(intChartSetIndex, 2, frm);
-            }
-            frm.lblChartSampleCount[intChartSetIndex][2].Text = lngSamplecount.ToString();
-
-            frm.blnChtUpdated[intChartSetIndex][2] = true;
-            //frm.chtQuad[intChartSetIndex][2].Invalidate();
-
-            // Any Table - Any Num. Players Chart
-            lngSamplecount = DataSampleCount(cntPlayerData_.cirPreFlop.actAnyTableAnyNumPlayers);
-            if (lngSamplecount > 0)
-            {
-                frm.chtQuad[intChartSetIndex][3].Series[0].Points[0].Color = Color.SpringGreen;
-
-                frm.chtQuad[intChartSetIndex][3].Series[0].Points[0].SetValueXY(GetPiePercentage(cntPlayerData_.cirPreFlop.actAnyTableAnyNumPlayers, 0),
-                    cntPlayerData_.cirPreFlop.actAnyTableAnyNumPlayers.lngFold);
-                frm.chtQuad[intChartSetIndex][3].Series[0].Points[1].SetValueXY(GetPiePercentage(cntPlayerData_.cirPreFlop.actAnyTableAnyNumPlayers, 1),
-                    cntPlayerData_.cirPreFlop.actAnyTableAnyNumPlayers.lngCheck);
-                frm.chtQuad[intChartSetIndex][3].Series[0].Points[2].SetValueXY(GetPiePercentage(cntPlayerData_.cirPreFlop.actAnyTableAnyNumPlayers, 2),
-                    cntPlayerData_.cirPreFlop.actAnyTableAnyNumPlayers.lngCall);
-                frm.chtQuad[intChartSetIndex][3].Series[0].Points[3].SetValueXY(GetPiePercentage(cntPlayerData_.cirPreFlop.actAnyTableAnyNumPlayers, 3),
-                    cntPlayerData_.cirPreFlop.actAnyTableAnyNumPlayers.lngBet);
-
-                frm.lblChartNoData[intChartSetIndex][3].Visible = false;
-            }
-            else
-            {
-                NoDataChart(intChartSetIndex, 3, frm);
-            }
-            frm.lblChartSampleCount[intChartSetIndex][3].Text = lngSamplecount.ToString();
-
-            frm.blnChtUpdated[intChartSetIndex][3] = true;
-            //frm.chtQuad[intChartSetIndex][3].Invalidate();
+            // Chart for "Any Table Any Number of Players"
+            PlotChart(bettingRoundData.AnyTableAnyNumPlayers, chartSetToUpdate_[DataDisplayForm.AnyTableAnyNumPlayersIndex],
+                chartSetNoDataLabels_[DataDisplayForm.AnyTableAnyNumPlayersIndex], chartSetSampleCount_[DataDisplayForm.AnyTableAnyNumPlayersIndex],
+                ref isChartSetUpdated_[DataDisplayForm.AnyTableAnyNumPlayersIndex]);
         }
 
         /// <summary>
-        /// Plot the data contained in the DataCounter class on the specified chart set
+        /// Sum up the poker actions of all players except the player running this application.
         /// </summary>
-        /// <param name="intChartSetIndex">The index of the set of 4 charts representing the data for one player (an integer 0-9)</param>
-        /// <param name="cntPlayerData_">All the player's relevent data</param>
-        /// <param name="frm"></param>
-        public void PlotPlayerDataFlop(int intChartSetIndex, DataCounter cntPlayerData_, frmDataDisplay frm)
+        /// <param name="playerData">The player data for all the players</param>
+        /// <param name="indexToSkip">The index of the player running this application</param>
+        /// <returns>The sum of the poker actions of all players except the player running this application</returns>
+        public DataCounter SumPlayerData(DataCounter[] playerData, int indexToSkip)
         {
-            long lngSamplecount;
-
-            // This Table - Current Num. Players Chart
-            lngSamplecount = DataSampleCount(cntPlayerData_.cirFlop.actThisTableCurrNumPlayers);
-            if (lngSamplecount > 0)
-            {
-                frm.chtQuad[intChartSetIndex][0].Series[0].Points[0].Color = Color.SpringGreen;
-
-                frm.chtQuad[intChartSetIndex][0].Series[0].Points[0].SetValueXY(GetPiePercentage(cntPlayerData_.cirFlop.actThisTableCurrNumPlayers, 0),
-                    cntPlayerData_.cirFlop.actThisTableCurrNumPlayers.lngFold);
-                frm.chtQuad[intChartSetIndex][0].Series[0].Points[1].SetValueXY(GetPiePercentage(cntPlayerData_.cirFlop.actThisTableCurrNumPlayers, 1),
-                    cntPlayerData_.cirFlop.actThisTableCurrNumPlayers.lngCheck);
-                frm.chtQuad[intChartSetIndex][0].Series[0].Points[2].SetValueXY(GetPiePercentage(cntPlayerData_.cirFlop.actThisTableCurrNumPlayers, 2),
-                    cntPlayerData_.cirFlop.actThisTableCurrNumPlayers.lngCall);
-                frm.chtQuad[intChartSetIndex][0].Series[0].Points[3].SetValueXY(GetPiePercentage(cntPlayerData_.cirFlop.actThisTableCurrNumPlayers, 3),
-                    cntPlayerData_.cirFlop.actThisTableCurrNumPlayers.lngBet);
-
-                frm.lblChartNoData[intChartSetIndex][0].Visible = false;
-            }
-            else
-            {
-                NoDataChart(intChartSetIndex, 0, frm);
-            }
-            frm.lblChartSampleCount[intChartSetIndex][0].Text = lngSamplecount.ToString();
-
-            frm.blnChtUpdated[intChartSetIndex][0] = true;
-            //frm.chtQuad[intChartSetIndex][0].Invalidate();
-
-            // This Table - Any Num. Players Chart
-            lngSamplecount = DataSampleCount(cntPlayerData_.cirFlop.actThisTableAnyNumPlayers);
-            if (lngSamplecount > 0)
-            {
-                frm.chtQuad[intChartSetIndex][1].Series[0].Points[0].Color = Color.SpringGreen;
-
-                frm.chtQuad[intChartSetIndex][1].Series[0].Points[0].SetValueXY(GetPiePercentage(cntPlayerData_.cirFlop.actThisTableAnyNumPlayers, 0),
-                    cntPlayerData_.cirFlop.actThisTableAnyNumPlayers.lngFold);
-                frm.chtQuad[intChartSetIndex][1].Series[0].Points[1].SetValueXY(GetPiePercentage(cntPlayerData_.cirFlop.actThisTableAnyNumPlayers, 1),
-                    cntPlayerData_.cirFlop.actThisTableAnyNumPlayers.lngCheck);
-                frm.chtQuad[intChartSetIndex][1].Series[0].Points[2].SetValueXY(GetPiePercentage(cntPlayerData_.cirFlop.actThisTableAnyNumPlayers, 2),
-                    cntPlayerData_.cirFlop.actThisTableAnyNumPlayers.lngCall);
-                frm.chtQuad[intChartSetIndex][1].Series[0].Points[3].SetValueXY(GetPiePercentage(cntPlayerData_.cirFlop.actThisTableAnyNumPlayers, 3),
-                    cntPlayerData_.cirFlop.actThisTableAnyNumPlayers.lngBet);
-
-                frm.lblChartNoData[intChartSetIndex][1].Visible = false;
-            }
-            else
-            {
-                NoDataChart(intChartSetIndex, 1, frm);
-            }
-            frm.lblChartSampleCount[intChartSetIndex][1].Text = lngSamplecount.ToString();
-
-            frm.blnChtUpdated[intChartSetIndex][1] = true;
-            //frm.chtQuad[intChartSetIndex][1].Invalidate();
-
-            // Any Table - Current Num. Players Chart
-            lngSamplecount = DataSampleCount(cntPlayerData_.cirFlop.actAnyTableCurrNumPlayers);
-            if (lngSamplecount > 0)
-            {
-                frm.chtQuad[intChartSetIndex][2].Series[0].Points[0].Color = Color.SpringGreen;
-
-                frm.chtQuad[intChartSetIndex][2].Series[0].Points[0].SetValueXY(GetPiePercentage(cntPlayerData_.cirFlop.actAnyTableCurrNumPlayers, 0),
-                    cntPlayerData_.cirFlop.actAnyTableCurrNumPlayers.lngFold);
-                frm.chtQuad[intChartSetIndex][2].Series[0].Points[1].SetValueXY(GetPiePercentage(cntPlayerData_.cirFlop.actAnyTableCurrNumPlayers, 1),
-                    cntPlayerData_.cirFlop.actAnyTableCurrNumPlayers.lngCheck);
-                frm.chtQuad[intChartSetIndex][2].Series[0].Points[2].SetValueXY(GetPiePercentage(cntPlayerData_.cirFlop.actAnyTableCurrNumPlayers, 2),
-                    cntPlayerData_.cirFlop.actAnyTableCurrNumPlayers.lngCall);
-                frm.chtQuad[intChartSetIndex][2].Series[0].Points[3].SetValueXY(GetPiePercentage(cntPlayerData_.cirFlop.actAnyTableCurrNumPlayers, 3),
-                    cntPlayerData_.cirFlop.actAnyTableCurrNumPlayers.lngBet);
-
-                frm.lblChartNoData[intChartSetIndex][2].Visible = false;
-            }
-            else
-            {
-                NoDataChart(intChartSetIndex, 2, frm);
-            }
-            frm.lblChartSampleCount[intChartSetIndex][2].Text = lngSamplecount.ToString();
-
-            frm.blnChtUpdated[intChartSetIndex][2] = true;
-            //frm.chtQuad[intChartSetIndex][2].Invalidate();
-
-            // Any Table - Any Num. Players Chart
-            lngSamplecount = DataSampleCount(cntPlayerData_.cirFlop.actAnyTableAnyNumPlayers);
-            if (lngSamplecount > 0)
-            {
-                frm.chtQuad[intChartSetIndex][3].Series[0].Points[0].Color = Color.SpringGreen;
-
-                frm.chtQuad[intChartSetIndex][3].Series[0].Points[0].SetValueXY(GetPiePercentage(cntPlayerData_.cirFlop.actAnyTableAnyNumPlayers, 0),
-                    cntPlayerData_.cirFlop.actAnyTableAnyNumPlayers.lngFold);
-                frm.chtQuad[intChartSetIndex][3].Series[0].Points[1].SetValueXY(GetPiePercentage(cntPlayerData_.cirFlop.actAnyTableAnyNumPlayers, 1),
-                    cntPlayerData_.cirFlop.actAnyTableAnyNumPlayers.lngCheck);
-                frm.chtQuad[intChartSetIndex][3].Series[0].Points[2].SetValueXY(GetPiePercentage(cntPlayerData_.cirFlop.actAnyTableAnyNumPlayers, 2),
-                    cntPlayerData_.cirFlop.actAnyTableAnyNumPlayers.lngCall);
-                frm.chtQuad[intChartSetIndex][3].Series[0].Points[3].SetValueXY(GetPiePercentage(cntPlayerData_.cirFlop.actAnyTableAnyNumPlayers, 3),
-                    cntPlayerData_.cirFlop.actAnyTableAnyNumPlayers.lngBet);
-
-                frm.lblChartNoData[intChartSetIndex][3].Visible = false;
-            }
-            else
-            {
-                NoDataChart(intChartSetIndex, 3, frm);
-            }
-            frm.lblChartSampleCount[intChartSetIndex][3].Text = lngSamplecount.ToString();
-
-            frm.blnChtUpdated[intChartSetIndex][3] = true;
-            //frm.chtQuad[intChartSetIndex][3].Invalidate();
-        }
-
-        /// <summary>
-        /// Plot the data contained in the DataCounter class on the specified chart set
-        /// </summary>
-        /// <param name="intChartSetIndex">The index of the set of 4 charts representing the data for one player (an integer 0-9)</param>
-        /// <param name="cntPlayerData_">All the player's relevent data</param>
-        /// <param name="frm"></param>
-        public void PlotPlayerDataTurn(int intChartSetIndex, DataCounter cntPlayerData_, frmDataDisplay frm)
-        {
-            long lngSamplecount;
-
-            // This Table - Current Num. Players Chart
-            lngSamplecount = DataSampleCount(cntPlayerData_.cirTurn.actThisTableCurrNumPlayers);
-            if (lngSamplecount > 0)
-            {
-                frm.chtQuad[intChartSetIndex][0].Series[0].Points[0].Color = Color.SpringGreen;
-
-                frm.chtQuad[intChartSetIndex][0].Series[0].Points[0].SetValueXY(GetPiePercentage(cntPlayerData_.cirTurn.actThisTableCurrNumPlayers, 0),
-                    cntPlayerData_.cirTurn.actThisTableCurrNumPlayers.lngFold);
-                frm.chtQuad[intChartSetIndex][0].Series[0].Points[1].SetValueXY(GetPiePercentage(cntPlayerData_.cirTurn.actThisTableCurrNumPlayers, 1),
-                    cntPlayerData_.cirTurn.actThisTableCurrNumPlayers.lngCheck);
-                frm.chtQuad[intChartSetIndex][0].Series[0].Points[2].SetValueXY(GetPiePercentage(cntPlayerData_.cirTurn.actThisTableCurrNumPlayers, 2),
-                    cntPlayerData_.cirTurn.actThisTableCurrNumPlayers.lngCall);
-                frm.chtQuad[intChartSetIndex][0].Series[0].Points[3].SetValueXY(GetPiePercentage(cntPlayerData_.cirTurn.actThisTableCurrNumPlayers, 3),
-                    cntPlayerData_.cirTurn.actThisTableCurrNumPlayers.lngBet);
-
-                frm.lblChartNoData[intChartSetIndex][0].Visible = false;
-            }
-            else
-            {
-                NoDataChart(intChartSetIndex, 0, frm);
-            }
-            frm.lblChartSampleCount[intChartSetIndex][0].Text = lngSamplecount.ToString();
-
-            frm.blnChtUpdated[intChartSetIndex][0] = true;
-            //frm.chtQuad[intChartSetIndex][0].Invalidate();
-
-            // This Table - Any Num. Players Chart
-            lngSamplecount = DataSampleCount(cntPlayerData_.cirTurn.actThisTableAnyNumPlayers);
-            if (lngSamplecount > 0)
-            {
-                frm.chtQuad[intChartSetIndex][1].Series[0].Points[0].Color = Color.SpringGreen;
-
-                frm.chtQuad[intChartSetIndex][1].Series[0].Points[0].SetValueXY(GetPiePercentage(cntPlayerData_.cirTurn.actThisTableAnyNumPlayers, 0),
-                    cntPlayerData_.cirTurn.actThisTableAnyNumPlayers.lngFold);
-                frm.chtQuad[intChartSetIndex][1].Series[0].Points[1].SetValueXY(GetPiePercentage(cntPlayerData_.cirTurn.actThisTableAnyNumPlayers, 1),
-                    cntPlayerData_.cirTurn.actThisTableAnyNumPlayers.lngCheck);
-                frm.chtQuad[intChartSetIndex][1].Series[0].Points[2].SetValueXY(GetPiePercentage(cntPlayerData_.cirTurn.actThisTableAnyNumPlayers, 2),
-                    cntPlayerData_.cirTurn.actThisTableAnyNumPlayers.lngCall);
-                frm.chtQuad[intChartSetIndex][1].Series[0].Points[3].SetValueXY(GetPiePercentage(cntPlayerData_.cirTurn.actThisTableAnyNumPlayers, 3),
-                    cntPlayerData_.cirTurn.actThisTableAnyNumPlayers.lngBet);
-
-                frm.lblChartNoData[intChartSetIndex][1].Visible = false;
-            }
-            else
-            {
-                NoDataChart(intChartSetIndex, 1, frm);
-            }
-            frm.lblChartSampleCount[intChartSetIndex][1].Text = lngSamplecount.ToString();
-
-            frm.blnChtUpdated[intChartSetIndex][1] = true;
-            //frm.chtQuad[intChartSetIndex][1].Invalidate();
-
-            // Any Table - Current Num. Players Chart
-            lngSamplecount = DataSampleCount(cntPlayerData_.cirTurn.actAnyTableCurrNumPlayers);
-            if (lngSamplecount > 0)
-            {
-                frm.chtQuad[intChartSetIndex][2].Series[0].Points[0].Color = Color.SpringGreen;
-
-                frm.chtQuad[intChartSetIndex][2].Series[0].Points[0].SetValueXY(GetPiePercentage(cntPlayerData_.cirTurn.actAnyTableCurrNumPlayers, 0),
-                    cntPlayerData_.cirTurn.actAnyTableCurrNumPlayers.lngFold);
-                frm.chtQuad[intChartSetIndex][2].Series[0].Points[1].SetValueXY(GetPiePercentage(cntPlayerData_.cirTurn.actAnyTableCurrNumPlayers, 1),
-                    cntPlayerData_.cirTurn.actAnyTableCurrNumPlayers.lngCheck);
-                frm.chtQuad[intChartSetIndex][2].Series[0].Points[2].SetValueXY(GetPiePercentage(cntPlayerData_.cirTurn.actAnyTableCurrNumPlayers, 2),
-                    cntPlayerData_.cirTurn.actAnyTableCurrNumPlayers.lngCall);
-                frm.chtQuad[intChartSetIndex][2].Series[0].Points[3].SetValueXY(GetPiePercentage(cntPlayerData_.cirTurn.actAnyTableCurrNumPlayers, 3),
-                    cntPlayerData_.cirTurn.actAnyTableCurrNumPlayers.lngBet);
-
-                frm.lblChartNoData[intChartSetIndex][2].Visible = false;
-            }
-            else
-            {
-                NoDataChart(intChartSetIndex, 2, frm);
-            }
-            frm.lblChartSampleCount[intChartSetIndex][2].Text = lngSamplecount.ToString();
-
-            frm.blnChtUpdated[intChartSetIndex][2] = true;
-            //frm.chtQuad[intChartSetIndex][2].Invalidate();
-
-            // Any Table - Any Num. Players Chart
-            lngSamplecount = DataSampleCount(cntPlayerData_.cirTurn.actAnyTableAnyNumPlayers);
-            if (lngSamplecount > 0)
-            {
-                frm.chtQuad[intChartSetIndex][3].Series[0].Points[0].Color = Color.SpringGreen;
-
-                frm.chtQuad[intChartSetIndex][3].Series[0].Points[0].SetValueXY(GetPiePercentage(cntPlayerData_.cirTurn.actAnyTableAnyNumPlayers, 0),
-                    cntPlayerData_.cirTurn.actAnyTableAnyNumPlayers.lngFold);
-                frm.chtQuad[intChartSetIndex][3].Series[0].Points[1].SetValueXY(GetPiePercentage(cntPlayerData_.cirTurn.actAnyTableAnyNumPlayers, 1),
-                    cntPlayerData_.cirTurn.actAnyTableAnyNumPlayers.lngCheck);
-                frm.chtQuad[intChartSetIndex][3].Series[0].Points[2].SetValueXY(GetPiePercentage(cntPlayerData_.cirTurn.actAnyTableAnyNumPlayers, 2),
-                    cntPlayerData_.cirTurn.actAnyTableAnyNumPlayers.lngCall);
-                frm.chtQuad[intChartSetIndex][3].Series[0].Points[3].SetValueXY(GetPiePercentage(cntPlayerData_.cirTurn.actAnyTableAnyNumPlayers, 3),
-                    cntPlayerData_.cirTurn.actAnyTableAnyNumPlayers.lngBet);
-
-                frm.lblChartNoData[intChartSetIndex][3].Visible = false;
-            }
-            else
-            {
-                NoDataChart(intChartSetIndex, 3, frm);
-            }
-            frm.lblChartSampleCount[intChartSetIndex][3].Text = lngSamplecount.ToString();
-
-            frm.blnChtUpdated[intChartSetIndex][3] = true;
-            //frm.chtQuad[intChartSetIndex][3].Invalidate();
-        }
-
-        /// <summary>
-        /// Plot the data contained in the DataCounter class on the specified chart set
-        /// </summary>
-        /// <param name="intChartSetIndex">The index of the set of 4 charts representing the data for one player (an integer 0-9)</param>
-        /// <param name="cntPlayerData_">All the player's relevent data</param>
-        /// <param name="frm"></param>
-        public void PlotPlayerDataRiver(int intChartSetIndex, DataCounter cntPlayerData_, frmDataDisplay frm)
-        {
-            long lngSamplecount;
-
-            // This Table - Current Num. Players Chart
-            lngSamplecount = DataSampleCount(cntPlayerData_.cirRiver.actThisTableCurrNumPlayers);
-            if (lngSamplecount > 0)
-            {
-                frm.chtQuad[intChartSetIndex][0].Series[0].Points[0].Color = Color.SpringGreen;
-
-                frm.chtQuad[intChartSetIndex][0].Series[0].Points[0].SetValueXY(GetPiePercentage(cntPlayerData_.cirRiver.actThisTableCurrNumPlayers, 0),
-                    cntPlayerData_.cirRiver.actThisTableCurrNumPlayers.lngFold);
-                frm.chtQuad[intChartSetIndex][0].Series[0].Points[1].SetValueXY(GetPiePercentage(cntPlayerData_.cirRiver.actThisTableCurrNumPlayers, 1),
-                    cntPlayerData_.cirRiver.actThisTableCurrNumPlayers.lngCheck);
-                frm.chtQuad[intChartSetIndex][0].Series[0].Points[2].SetValueXY(GetPiePercentage(cntPlayerData_.cirRiver.actThisTableCurrNumPlayers, 2),
-                    cntPlayerData_.cirRiver.actThisTableCurrNumPlayers.lngCall);
-                frm.chtQuad[intChartSetIndex][0].Series[0].Points[3].SetValueXY(GetPiePercentage(cntPlayerData_.cirRiver.actThisTableCurrNumPlayers, 3),
-                    cntPlayerData_.cirRiver.actThisTableCurrNumPlayers.lngBet);
-
-                frm.lblChartNoData[intChartSetIndex][0].Visible = false;
-            }
-            else
-            {
-                NoDataChart(intChartSetIndex, 0, frm);
-            }
-            frm.lblChartSampleCount[intChartSetIndex][0].Text = lngSamplecount.ToString();
-
-            frm.blnChtUpdated[intChartSetIndex][0] = true;
-            //frm.chtQuad[intChartSetIndex][0].Invalidate();
-
-            // This Table - Any Num. Players Chart
-            lngSamplecount = DataSampleCount(cntPlayerData_.cirRiver.actThisTableAnyNumPlayers);
-            if (lngSamplecount > 0)
-            {
-                frm.chtQuad[intChartSetIndex][1].Series[0].Points[0].Color = Color.SpringGreen;
-
-                frm.chtQuad[intChartSetIndex][1].Series[0].Points[0].SetValueXY(GetPiePercentage(cntPlayerData_.cirRiver.actThisTableAnyNumPlayers, 0),
-                    cntPlayerData_.cirRiver.actThisTableAnyNumPlayers.lngFold);
-                frm.chtQuad[intChartSetIndex][1].Series[0].Points[1].SetValueXY(GetPiePercentage(cntPlayerData_.cirRiver.actThisTableAnyNumPlayers, 1),
-                    cntPlayerData_.cirRiver.actThisTableAnyNumPlayers.lngCheck);
-                frm.chtQuad[intChartSetIndex][1].Series[0].Points[2].SetValueXY(GetPiePercentage(cntPlayerData_.cirRiver.actThisTableAnyNumPlayers, 2),
-                    cntPlayerData_.cirRiver.actThisTableAnyNumPlayers.lngCall);
-                frm.chtQuad[intChartSetIndex][1].Series[0].Points[3].SetValueXY(GetPiePercentage(cntPlayerData_.cirRiver.actThisTableAnyNumPlayers, 3),
-                    cntPlayerData_.cirRiver.actThisTableAnyNumPlayers.lngBet);
-
-                frm.lblChartNoData[intChartSetIndex][1].Visible = false;
-            }
-            else
-            {
-                NoDataChart(intChartSetIndex, 1, frm);
-            }
-            frm.lblChartSampleCount[intChartSetIndex][1].Text = lngSamplecount.ToString();
-
-            frm.blnChtUpdated[intChartSetIndex][1] = true;
-            //frm.chtQuad[intChartSetIndex][1].Invalidate();
-
-            // Any Table - Current Num. Players Chart
-            lngSamplecount = DataSampleCount(cntPlayerData_.cirRiver.actAnyTableCurrNumPlayers);
-            if (lngSamplecount > 0)
-            {
-                frm.chtQuad[intChartSetIndex][2].Series[0].Points[0].Color = Color.SpringGreen;
-
-                frm.chtQuad[intChartSetIndex][2].Series[0].Points[0].SetValueXY(GetPiePercentage(cntPlayerData_.cirRiver.actAnyTableCurrNumPlayers, 0),
-                    cntPlayerData_.cirRiver.actAnyTableCurrNumPlayers.lngFold);
-                frm.chtQuad[intChartSetIndex][2].Series[0].Points[1].SetValueXY(GetPiePercentage(cntPlayerData_.cirRiver.actAnyTableCurrNumPlayers, 1),
-                    cntPlayerData_.cirRiver.actAnyTableCurrNumPlayers.lngCheck);
-                frm.chtQuad[intChartSetIndex][2].Series[0].Points[2].SetValueXY(GetPiePercentage(cntPlayerData_.cirRiver.actAnyTableCurrNumPlayers, 2),
-                    cntPlayerData_.cirRiver.actAnyTableCurrNumPlayers.lngCall);
-                frm.chtQuad[intChartSetIndex][2].Series[0].Points[3].SetValueXY(GetPiePercentage(cntPlayerData_.cirRiver.actAnyTableCurrNumPlayers, 3),
-                    cntPlayerData_.cirRiver.actAnyTableCurrNumPlayers.lngBet);
-
-                frm.lblChartNoData[intChartSetIndex][2].Visible = false;
-            }
-            else
-            {
-                NoDataChart(intChartSetIndex, 2, frm);
-            }
-            frm.lblChartSampleCount[intChartSetIndex][2].Text = lngSamplecount.ToString();
-
-            frm.blnChtUpdated[intChartSetIndex][2] = true;
-            //frm.chtQuad[intChartSetIndex][2].Invalidate();
-
-            // Any Table - Any Num. Players Chart
-            lngSamplecount = DataSampleCount(cntPlayerData_.cirRiver.actAnyTableAnyNumPlayers);
-            if (lngSamplecount > 0)
-            {
-                frm.chtQuad[intChartSetIndex][3].Series[0].Points[0].Color = Color.SpringGreen;
-
-                frm.chtQuad[intChartSetIndex][3].Series[0].Points[0].SetValueXY(GetPiePercentage(cntPlayerData_.cirRiver.actAnyTableAnyNumPlayers, 0),
-                    cntPlayerData_.cirRiver.actAnyTableAnyNumPlayers.lngFold);
-                frm.chtQuad[intChartSetIndex][3].Series[0].Points[1].SetValueXY(GetPiePercentage(cntPlayerData_.cirRiver.actAnyTableAnyNumPlayers, 1),
-                    cntPlayerData_.cirRiver.actAnyTableAnyNumPlayers.lngCheck);
-                frm.chtQuad[intChartSetIndex][3].Series[0].Points[2].SetValueXY(GetPiePercentage(cntPlayerData_.cirRiver.actAnyTableAnyNumPlayers, 2),
-                    cntPlayerData_.cirRiver.actAnyTableAnyNumPlayers.lngCall);
-                frm.chtQuad[intChartSetIndex][3].Series[0].Points[3].SetValueXY(GetPiePercentage(cntPlayerData_.cirRiver.actAnyTableAnyNumPlayers, 3),
-                    cntPlayerData_.cirRiver.actAnyTableAnyNumPlayers.lngBet);
-
-                frm.lblChartNoData[intChartSetIndex][3].Visible = false;
-            }
-            else
-            {
-                NoDataChart(intChartSetIndex, 3, frm);
-            }
-            frm.lblChartSampleCount[intChartSetIndex][3].Text = lngSamplecount.ToString();
-
-            frm.blnChtUpdated[intChartSetIndex][3] = true;
-            //frm.chtQuad[intChartSetIndex][3].Invalidate();
-        }
-
-        public DataCounter SumPlayerData(DataCounter[] cntData, int intIndexToSkip)
-        {
-            DataCounter cntSumedData = new DataCounter();
+            DataCounter sumedData = new DataCounter();
 
             for (int i = 0; i < 9; i++)
             {
-                if (i != intIndexToSkip)
+                if (i != indexToSkip)
                 {
                     // PreFlop
-                    cntSumedData.cirPreFlop.actThisTableCurrNumPlayers.lngFold += cntData[i].cirPreFlop.actThisTableCurrNumPlayers.lngFold;
-                    cntSumedData.cirPreFlop.actThisTableCurrNumPlayers.lngCheck += cntData[i].cirPreFlop.actThisTableCurrNumPlayers.lngCheck;
-                    cntSumedData.cirPreFlop.actThisTableCurrNumPlayers.lngCall += cntData[i].cirPreFlop.actThisTableCurrNumPlayers.lngCall;
-                    cntSumedData.cirPreFlop.actThisTableCurrNumPlayers.lngBet += cntData[i].cirPreFlop.actThisTableCurrNumPlayers.lngBet;
-
-                    cntSumedData.cirPreFlop.actThisTableAnyNumPlayers.lngFold += cntData[i].cirPreFlop.actThisTableAnyNumPlayers.lngFold;
-                    cntSumedData.cirPreFlop.actThisTableAnyNumPlayers.lngCheck += cntData[i].cirPreFlop.actThisTableAnyNumPlayers.lngCheck;
-                    cntSumedData.cirPreFlop.actThisTableAnyNumPlayers.lngCall += cntData[i].cirPreFlop.actThisTableAnyNumPlayers.lngCall;
-                    cntSumedData.cirPreFlop.actThisTableAnyNumPlayers.lngBet += cntData[i].cirPreFlop.actThisTableAnyNumPlayers.lngBet;
-
-                    cntSumedData.cirPreFlop.actAnyTableCurrNumPlayers.lngFold += cntData[i].cirPreFlop.actAnyTableCurrNumPlayers.lngFold;
-                    cntSumedData.cirPreFlop.actAnyTableCurrNumPlayers.lngCheck += cntData[i].cirPreFlop.actAnyTableCurrNumPlayers.lngCheck;
-                    cntSumedData.cirPreFlop.actAnyTableCurrNumPlayers.lngCall += cntData[i].cirPreFlop.actAnyTableCurrNumPlayers.lngCall;
-                    cntSumedData.cirPreFlop.actAnyTableCurrNumPlayers.lngBet += cntData[i].cirPreFlop.actAnyTableCurrNumPlayers.lngBet;
-
-                    cntSumedData.cirPreFlop.actAnyTableAnyNumPlayers.lngFold += cntData[i].cirPreFlop.actAnyTableAnyNumPlayers.lngFold;
-                    cntSumedData.cirPreFlop.actAnyTableAnyNumPlayers.lngCheck += cntData[i].cirPreFlop.actAnyTableAnyNumPlayers.lngCheck;
-                    cntSumedData.cirPreFlop.actAnyTableAnyNumPlayers.lngCall += cntData[i].cirPreFlop.actAnyTableAnyNumPlayers.lngCall;
-                    cntSumedData.cirPreFlop.actAnyTableAnyNumPlayers.lngBet += cntData[i].cirPreFlop.actAnyTableAnyNumPlayers.lngBet;
+                    AddPokerActionsToSum(sumedData.Preflop.ThisTableCurrNumPlayers, playerData[i].Preflop.ThisTableCurrNumPlayers);
+                    AddPokerActionsToSum(sumedData.Preflop.ThisTableAnyNumPlayers, playerData[i].Preflop.ThisTableAnyNumPlayers);
+                    AddPokerActionsToSum(sumedData.Preflop.AnyTableCurrNumPlayers, playerData[i].Preflop.AnyTableCurrNumPlayers);
+                    AddPokerActionsToSum(sumedData.Preflop.AnyTableAnyNumPlayers, playerData[i].Preflop.AnyTableAnyNumPlayers);
 
                     // Flop
-                    cntSumedData.cirFlop.actThisTableCurrNumPlayers.lngFold += cntData[i].cirFlop.actThisTableCurrNumPlayers.lngFold;
-                    cntSumedData.cirFlop.actThisTableCurrNumPlayers.lngCheck += cntData[i].cirFlop.actThisTableCurrNumPlayers.lngCheck;
-                    cntSumedData.cirFlop.actThisTableCurrNumPlayers.lngCall += cntData[i].cirFlop.actThisTableCurrNumPlayers.lngCall;
-                    cntSumedData.cirFlop.actThisTableCurrNumPlayers.lngBet += cntData[i].cirFlop.actThisTableCurrNumPlayers.lngBet;
-
-                    cntSumedData.cirFlop.actThisTableAnyNumPlayers.lngFold += cntData[i].cirFlop.actThisTableAnyNumPlayers.lngFold;
-                    cntSumedData.cirFlop.actThisTableAnyNumPlayers.lngCheck += cntData[i].cirFlop.actThisTableAnyNumPlayers.lngCheck;
-                    cntSumedData.cirFlop.actThisTableAnyNumPlayers.lngCall += cntData[i].cirFlop.actThisTableAnyNumPlayers.lngCall;
-                    cntSumedData.cirFlop.actThisTableAnyNumPlayers.lngBet += cntData[i].cirFlop.actThisTableAnyNumPlayers.lngBet;
-
-                    cntSumedData.cirFlop.actAnyTableCurrNumPlayers.lngFold += cntData[i].cirFlop.actAnyTableCurrNumPlayers.lngFold;
-                    cntSumedData.cirFlop.actAnyTableCurrNumPlayers.lngCheck += cntData[i].cirFlop.actAnyTableCurrNumPlayers.lngCheck;
-                    cntSumedData.cirFlop.actAnyTableCurrNumPlayers.lngCall += cntData[i].cirFlop.actAnyTableCurrNumPlayers.lngCall;
-                    cntSumedData.cirFlop.actAnyTableCurrNumPlayers.lngBet += cntData[i].cirFlop.actAnyTableCurrNumPlayers.lngBet;
-
-                    cntSumedData.cirFlop.actAnyTableAnyNumPlayers.lngFold += cntData[i].cirFlop.actAnyTableAnyNumPlayers.lngFold;
-                    cntSumedData.cirFlop.actAnyTableAnyNumPlayers.lngCheck += cntData[i].cirFlop.actAnyTableAnyNumPlayers.lngCheck;
-                    cntSumedData.cirFlop.actAnyTableAnyNumPlayers.lngCall += cntData[i].cirFlop.actAnyTableAnyNumPlayers.lngCall;
-                    cntSumedData.cirFlop.actAnyTableAnyNumPlayers.lngBet += cntData[i].cirFlop.actAnyTableAnyNumPlayers.lngBet;
+                    AddPokerActionsToSum(sumedData.Flop.ThisTableCurrNumPlayers, playerData[i].Flop.ThisTableCurrNumPlayers);
+                    AddPokerActionsToSum(sumedData.Flop.ThisTableAnyNumPlayers, playerData[i].Flop.ThisTableAnyNumPlayers);
+                    AddPokerActionsToSum(sumedData.Flop.AnyTableCurrNumPlayers, playerData[i].Flop.AnyTableCurrNumPlayers);
+                    AddPokerActionsToSum(sumedData.Flop.AnyTableAnyNumPlayers, playerData[i].Flop.AnyTableAnyNumPlayers);
 
                     // Turn
-                    cntSumedData.cirTurn.actThisTableCurrNumPlayers.lngFold += cntData[i].cirTurn.actThisTableCurrNumPlayers.lngFold;
-                    cntSumedData.cirTurn.actThisTableCurrNumPlayers.lngCheck += cntData[i].cirTurn.actThisTableCurrNumPlayers.lngCheck;
-                    cntSumedData.cirTurn.actThisTableCurrNumPlayers.lngCall += cntData[i].cirTurn.actThisTableCurrNumPlayers.lngCall;
-                    cntSumedData.cirTurn.actThisTableCurrNumPlayers.lngBet += cntData[i].cirTurn.actThisTableCurrNumPlayers.lngBet;
-
-                    cntSumedData.cirTurn.actThisTableAnyNumPlayers.lngFold += cntData[i].cirTurn.actThisTableAnyNumPlayers.lngFold;
-                    cntSumedData.cirTurn.actThisTableAnyNumPlayers.lngCheck += cntData[i].cirTurn.actThisTableAnyNumPlayers.lngCheck;
-                    cntSumedData.cirTurn.actThisTableAnyNumPlayers.lngCall += cntData[i].cirTurn.actThisTableAnyNumPlayers.lngCall;
-                    cntSumedData.cirTurn.actThisTableAnyNumPlayers.lngBet += cntData[i].cirTurn.actThisTableAnyNumPlayers.lngBet;
-
-                    cntSumedData.cirTurn.actAnyTableCurrNumPlayers.lngFold += cntData[i].cirTurn.actAnyTableCurrNumPlayers.lngFold;
-                    cntSumedData.cirTurn.actAnyTableCurrNumPlayers.lngCheck += cntData[i].cirTurn.actAnyTableCurrNumPlayers.lngCheck;
-                    cntSumedData.cirTurn.actAnyTableCurrNumPlayers.lngCall += cntData[i].cirTurn.actAnyTableCurrNumPlayers.lngCall;
-                    cntSumedData.cirTurn.actAnyTableCurrNumPlayers.lngBet += cntData[i].cirTurn.actAnyTableCurrNumPlayers.lngBet;
-
-                    cntSumedData.cirTurn.actAnyTableAnyNumPlayers.lngFold += cntData[i].cirTurn.actAnyTableAnyNumPlayers.lngFold;
-                    cntSumedData.cirTurn.actAnyTableAnyNumPlayers.lngCheck += cntData[i].cirTurn.actAnyTableAnyNumPlayers.lngCheck;
-                    cntSumedData.cirTurn.actAnyTableAnyNumPlayers.lngCall += cntData[i].cirTurn.actAnyTableAnyNumPlayers.lngCall;
-                    cntSumedData.cirTurn.actAnyTableAnyNumPlayers.lngBet += cntData[i].cirTurn.actAnyTableAnyNumPlayers.lngBet;
+                    AddPokerActionsToSum(sumedData.Turn.ThisTableCurrNumPlayers, playerData[i].Turn.ThisTableCurrNumPlayers);
+                    AddPokerActionsToSum(sumedData.Turn.ThisTableAnyNumPlayers, playerData[i].Turn.ThisTableAnyNumPlayers);
+                    AddPokerActionsToSum(sumedData.Turn.AnyTableCurrNumPlayers, playerData[i].Turn.AnyTableCurrNumPlayers);
+                    AddPokerActionsToSum(sumedData.Turn.AnyTableAnyNumPlayers, playerData[i].Turn.AnyTableAnyNumPlayers);
 
                     // River
-                    cntSumedData.cirRiver.actThisTableCurrNumPlayers.lngFold += cntData[i].cirRiver.actThisTableCurrNumPlayers.lngFold;
-                    cntSumedData.cirRiver.actThisTableCurrNumPlayers.lngCheck += cntData[i].cirRiver.actThisTableCurrNumPlayers.lngCheck;
-                    cntSumedData.cirRiver.actThisTableCurrNumPlayers.lngCall += cntData[i].cirRiver.actThisTableCurrNumPlayers.lngCall;
-                    cntSumedData.cirRiver.actThisTableCurrNumPlayers.lngBet += cntData[i].cirRiver.actThisTableCurrNumPlayers.lngBet;
-
-                    cntSumedData.cirRiver.actThisTableAnyNumPlayers.lngFold += cntData[i].cirRiver.actThisTableAnyNumPlayers.lngFold;
-                    cntSumedData.cirRiver.actThisTableAnyNumPlayers.lngCheck += cntData[i].cirRiver.actThisTableAnyNumPlayers.lngCheck;
-                    cntSumedData.cirRiver.actThisTableAnyNumPlayers.lngCall += cntData[i].cirRiver.actThisTableAnyNumPlayers.lngCall;
-                    cntSumedData.cirRiver.actThisTableAnyNumPlayers.lngBet += cntData[i].cirRiver.actThisTableAnyNumPlayers.lngBet;
-
-                    cntSumedData.cirRiver.actAnyTableCurrNumPlayers.lngFold += cntData[i].cirRiver.actAnyTableCurrNumPlayers.lngFold;
-                    cntSumedData.cirRiver.actAnyTableCurrNumPlayers.lngCheck += cntData[i].cirRiver.actAnyTableCurrNumPlayers.lngCheck;
-                    cntSumedData.cirRiver.actAnyTableCurrNumPlayers.lngCall += cntData[i].cirRiver.actAnyTableCurrNumPlayers.lngCall;
-                    cntSumedData.cirRiver.actAnyTableCurrNumPlayers.lngBet += cntData[i].cirRiver.actAnyTableCurrNumPlayers.lngBet;
-
-                    cntSumedData.cirRiver.actAnyTableAnyNumPlayers.lngFold += cntData[i].cirRiver.actAnyTableAnyNumPlayers.lngFold;
-                    cntSumedData.cirRiver.actAnyTableAnyNumPlayers.lngCheck += cntData[i].cirRiver.actAnyTableAnyNumPlayers.lngCheck;
-                    cntSumedData.cirRiver.actAnyTableAnyNumPlayers.lngCall += cntData[i].cirRiver.actAnyTableAnyNumPlayers.lngCall;
-                    cntSumedData.cirRiver.actAnyTableAnyNumPlayers.lngBet += cntData[i].cirRiver.actAnyTableAnyNumPlayers.lngBet;
+                    AddPokerActionsToSum(sumedData.River.ThisTableCurrNumPlayers, playerData[i].River.ThisTableCurrNumPlayers);
+                    AddPokerActionsToSum(sumedData.River.ThisTableAnyNumPlayers, playerData[i].River.ThisTableAnyNumPlayers);
+                    AddPokerActionsToSum(sumedData.River.AnyTableCurrNumPlayers, playerData[i].River.AnyTableCurrNumPlayers);
+                    AddPokerActionsToSum(sumedData.River.AnyTableAnyNumPlayers, playerData[i].River.AnyTableAnyNumPlayers);
                 }
             }
-
-            return cntSumedData;
+            return sumedData;
         }
 
         #endregion
 
         #region Helper Methods
 
-        private bool ProcessPlayerAciton(DbPlayerHandInfoAll hi_, int intIndex, int[] intChipsInPot_, int intCurrGameId_, 
-            int intCurrNumPlayers_, HandCircumstances stg, int intFirstPlayerToActIndex_, int intPlayerIndex_, 
-            int intPlayerChipStackStart_, ref bool blnBetMade, ref bool blnFolded_, bool blnPreflop)
-        {
-            bool blnPlayerAction = false;
-            int intOtherPlayerChipsInPot_Prev, intOtherPlayerChipsInPot_Curr, intActionPlayerIndex_;
+        #region Processing database data (player actions)
 
-            intOtherPlayerChipsInPot_Prev = -1;
-            intOtherPlayerChipsInPot_Curr = -1;
-            intActionPlayerIndex_ = -1;
+        /// <summary>
+        /// Check to make sure at least one player posted a blind this hand.
+        /// </summary>
+        /// <param name="hand_">The DbPlayerHandInfoAll for the hand of interest</param>
+        /// <returns>True if at least one player posted a blind</returns>
+        private bool BlindExists(DbPlayerHandInfoAll hand_)
+        {
+            foreach (DbHandPlayerInfo handPlayer in hand_.HandPlayerInfoList)
+            {
+                if (handPlayer.Blind > 0)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Determine the actions numbers for pre-flop, flop, turn and river actions. (flopActionNum, turnActionNum and riverActionNum)
+        /// </summary>
+        /// <param name="hand_">The DbPlayerHandInfoAll for the hand of interest</param>
+        /// <param name="defaultBoardCardActionNum_">The default value for the board card action numbers</param>
+        /// <param name="flopActionNum_">The action number for the first flop card</param>
+        /// <param name="turnActionNum_">The ation number for the turn card</param>
+        /// <param name="riverActionNum_">The action number for the river card</param>
+        private void GetBoardCardActionNumbers(DbPlayerHandInfoAll hand_, int defaultBoardCardActionNum_, out int flopActionNum_, out int turnActionNum_, out int riverActionNum_)
+        {
+            // Set the board card action numbers to their default value
+            flopActionNum_ = defaultBoardCardActionNum_;
+            turnActionNum_ = defaultBoardCardActionNum_;
+            riverActionNum_ = defaultBoardCardActionNum_;
+
+            // Update the board card action numbers if the board cards were dealt this hand
+            for (int i = 0; i < hand_.BoardActionInfoList.Count; i++)
+            {
+                if (i == 0)
+                {
+                    flopActionNum_ = hand_.BoardActionInfoList[i].HandActionNumber;
+                }
+                else if (i == 3)
+                {
+                    turnActionNum_ = hand_.BoardActionInfoList[i].HandActionNumber;
+                }
+                else if (i == 4)
+                {
+                    riverActionNum_ = hand_.BoardActionInfoList[i].HandActionNumber;
+                }
+            }  
+        }
+
+        /// <summary>
+        /// Update the playerChipsInPot array with antes and blinds, find the indices of the blind players and find the index of the player of interest.
+        /// </summary>
+        /// <remarks>
+        /// <para>Only updating the elements of the playerChipsInPot array for the players who are actually in the hand.</para>
+        /// <para>The indices of the blind players will be used later to determine the first player to act.</para>
+        /// </remarks>
+        /// <param name="hand_">The DbPlayerHandInfoAll for the hand of interest</param>
+        /// <param name="playerChipsInPot_">The number of chips each player has in the pot [array]</param>
+        /// <param name="playerChipStackStart_">The number of chips each player had at the beginning of the hand (before blinds and antes) [array]</param>
+        /// <param name="blindPlayerIndices_">The indices of the two blind players [array]</param>
+        /// <returns>The index of the player of interest for this hand</returns>
+        private int InitializeHandStartingConditions(DbPlayerHandInfoAll hand_, int[] playerChipsInPot_, int[] playerChipStackStart_, int[] blindPlayerIndices_)
+        {
+            int playerOfInterestIndex_ = -1;
+
+            for (int i = 0; i < hand_.HandPlayerInfoList.Count; i++)
+            {
+                playerChipsInPot_[i] = hand_.HandPlayerInfoList[i].Blind + hand_.HandInfo.Ante;
+                playerChipStackStart_[i] = hand_.HandPlayerInfoList[i].ChipCountStart;
+
+                if (hand_.HandInfo.HandPlayerId == hand_.HandPlayerInfoList[i].HandPlayerId)
+                {
+                    playerOfInterestIndex_ = i;
+                }
+
+                if (hand_.HandPlayerInfoList[i].Blind > 0)
+                {
+                    if (blindPlayerIndices_[0] == -1)
+                    {
+                        blindPlayerIndices_[0] = i;
+                    }
+                    else
+                    {
+                        blindPlayerIndices_[1] = i;
+                    }
+                }
+            }
+
+            return playerOfInterestIndex_;
+        }
+
+        /// <summary>
+        /// Check to see if this hand has started and has a winner.
+        /// </summary>
+        /// <param name="hand_">The DbPlayerHandInfoAll for the hand of interest</param>
+        /// <returns>True if this hand has started and has no winner</returns>
+        private bool UnfinishedHand(DbPlayerHandInfoAll hand_)
+        {
+            // Check to make sure this hand has a winner by checking to see if the hand ended with someone gaining chips which is denoted 
+            // by a negative chipCountChange number. First I will check to make sure the hand has started by checking 
+            // hand.PlayerActionInfoList.Count > 0. If hand.PlayerActionInfoList.Count == 0 it means this is pre-flop and the player of 
+            // interest is the first player to act so nothing has happened yet.
+            return (hand_.PlayerActionInfoList.Count > 0 && hand_.PlayerActionInfoList[hand_.PlayerActionInfoList.Count - 1].ChipCountChange >= 0);
+        }
+
+        /// <summary>
+        /// Modify the hand data so that check actions immediately before the current oppertunity to act are processed properly. 
+        /// </summary>
+        /// <remarks>
+        /// At this point we have a hand in progress that has not been completed. It is the player of interest's turn to act. If one or more 
+        /// players checked immediately before this point those actions would not be processed correctly because checks are not saved to the 
+        /// database. Once subsequent actions are taken checks are identified by skipped opportunities to act.
+        /// </remarks>
+        /// <param name="hand_">The DbPlayerHandInfoAll for the hand of interest</param>
+        /// <param name="actionLog_">The record of all the player of interest's actions</param>
+        /// <param name="flopActionNum_">The hand action number of the flop</param>
+        /// <param name="turnActionNum_">The hand action number of the turn</param>
+        /// <param name="riverActionNum_">The hand action number of the river</param>
+        /// <param name="playerOfInterestHandPlayerId_">The current HandPlayerId of the player of interest</param>
+        private void ModifyDataToProcessHandInProgress(DbPlayerHandInfoAll hand_, DataCounter actionLog_, int flopActionNum_, int turnActionNum_,
+            int riverActionNum_, long playerOfInterestHandPlayerId_)
+        {
+            int largeBet = 1000000000;
+            int nextHandActionNum = FindNextHandActionNum(hand_, flopActionNum_, turnActionNum_, riverActionNum_);
+
+            // It is the player of interest's (playerOfInterestHandPlayerId_) turn to act in the hand currently in progress.
+            // Add a large bet action to the PlayerActionInfoList for the player of interest so that players who checked
+            // immediately before the player of interest will have there actions counted.
+            AddBetActionToHand(hand_, playerOfInterestHandPlayerId_, largeBet, nextHandActionNum);
+
+            // Is the player currently being analyzed the player of interest (the app user)
+            if (hand_.HandInfo.HandPlayerId == playerOfInterestHandPlayerId_)
+            {
+                // Subtract 1 bet from the appropriate DataCounter betting round tally for the player of interest (the user)
+
+                // Find out if this is a pre-flop, flop, turn or river fold
+                if (riverActionNum_ < 100000)
+                {
+                    // We already know this is the current hand in progress so it is "This Table" and it is also
+                    // "Curr Number of Players"
+
+                    AddBetActionToActionLog(actionLog_.River, -1);
+                }
+                else if (turnActionNum_ < 100000)
+                {
+                    // We already know this is the current hand in progress so it is "This Table" and it is also
+                    // "Curr Number of Players"
+
+                    AddBetActionToActionLog(actionLog_.Turn, -1);
+                }
+                else if (flopActionNum_ < 100000)
+                {
+                    // We already know this is the current hand in progress so it is "This Table" and it is also
+                    // "Curr Number of Players"
+
+                    AddBetActionToActionLog(actionLog_.Flop, -1);
+                }
+                else
+                {
+                    // We already know this is the current hand in progress so it is "This Table" and it is also
+                    // "Curr Number of Players"
+
+                    AddBetActionToActionLog(actionLog_.Preflop, -1);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Find the next hand action number.
+        /// </summary>
+        /// <param name="hand__">The DbPlayerHandInfoAll for the hand of interest</param>
+        /// <param name="flopActionNum__">The hand action number of the flop</param>
+        /// <param name="turnActionNum__">The hand action number of the turn</param>
+        /// <param name="riverActionNum__">The hand action number of the river</param>
+        /// <returns>The next hand action number</returns>
+        private int FindNextHandActionNum(DbPlayerHandInfoAll hand__, int flopActionNum__, int turnActionNum__, int riverActionNum__)
+        {
+            int nextHandActionNum = 0;
+
+            // If the last action was a board card being shown then the next hand action number is either flopActionNumber__ + 1, 
+            // turnActionNumber__ + 1 or riverActionNumber__ + 1.
+
+            // Find latest board action
+            if (riverActionNum__ < 100000)
+            {
+                nextHandActionNum = riverActionNum__ + 1;
+            }
+            else if (turnActionNum__ < 100000)
+            {
+                nextHandActionNum = turnActionNum__ + 1;
+            }
+            else if (flopActionNum__ < 100000)
+            {
+                nextHandActionNum = flopActionNum__ + 1;
+            }
+
+            // If the last action was a player action the next hand action number will be PlayerActionInfoList.Count.
+
+            // Check to see if the latest hand action was more recent than the latest board action.
+            if (hand__.PlayerActionInfoList.Count > nextHandActionNum)
+            {
+                nextHandActionNum = hand__.PlayerActionInfoList.Count;
+            }
+
+            return nextHandActionNum;
+        }
+
+        /// <summary>
+        /// Add a bet action to the PlayerActionInfoList for a given player.
+        /// </summary>
+        /// <param name="hand__">The DbPlayerHandInfoAll for the hand of interest</param>
+        /// <param name="handPlayerId">The handPlayerId of the player you wish to add the bet action to</param>
+        /// <param name="bet">The value of the bet action you wish to add</param>
+        /// <param name="handActionNum">The handActionNumber of the bet you wish to add</param>
+        private void AddBetActionToHand(DbPlayerHandInfoAll hand__, long handPlayerId, int bet, int handActionNum)
+        {
+            hand__.PlayerActionInfoList.Add(new DbPlayerActionInfo
+            {
+                HandPlayerId = handPlayerId,
+                ChipCountChange = bet,
+                HandActionNumber = handActionNum
+            });
+
+            for (int i = 0; i < hand__.HandPlayerInfoList.Count; i++)
+            {
+                if (hand__.HandPlayerInfoList[i].HandPlayerId == handPlayerId)
+                {
+                    // Add the same bet to the player's initial chip count to prevent issues that might arise with pre-flop
+                    // call/bet minimums and all-in issues in the code
+                    hand__.HandPlayerInfoList[i].ChipCountStart += bet;
+                    break;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Add bet actions to the ActionLog for a given round of betting. The bet actions will apply to all four of the possible 
+        /// HandCircumstances (ThisTableCurrNumPlayers, ThisTableAnyNumPlayers, AnyTableCurrNumPlayers and AnyTableAnyNumPlayers).
+        /// </summary>
+        /// <param name="bettingRound">The DataCounter.HandCircumstances object representing the betting round of the hand you wish to add a bet action to</param>
+        /// <param name="numBets">The number of bet actions you wish to add</param>
+        private void AddBetActionToActionLog(HandCircumstances bettingRound, int numBets)
+        {
+            bettingRound.ThisTableCurrNumPlayers.Bet += numBets;
+            bettingRound.ThisTableAnyNumPlayers.Bet += numBets;
+            bettingRound.AnyTableCurrNumPlayers.Bet += numBets;
+            bettingRound.AnyTableAnyNumPlayers.Bet += numBets;
+        }
+
+        /// <summary>
+        /// Find the index of the first player to act in this hand.
+        /// </summary>
+        /// <param name="hand_">The DbPlayerHandInfoAll for the hand of interest</param>
+        /// <param name="blindPlayerIndices_">The indices of the two blind players [array]</param>
+        /// <returns>The index of the first player to act</returns>
+        private int FindFirstPlayerToActIndex(DbPlayerHandInfoAll hand_, int[] blindPlayerIndices_)
+        {
+            int firstPlayerToActIndex_;
+
+            // If only one player posted a blind that player was the first to act
+            if (blindPlayerIndices_[1] == -1)
+            {
+                firstPlayerToActIndex_ = blindPlayerIndices_[0];
+            }
+            // More than one player posted a blind
+            else
+            {
+                // If there are more than two players left
+                if (hand_.HandPlayerInfoList.Count > 2)
+                {
+                    // The player with the lowest index is always the first to act unless the player in the first seat at the table and the player
+                    // in the last seat at the table were the two blinds. In that case the player with the higher index was the first to act.
+                    if (!(blindPlayerIndices_[0] == 0 && blindPlayerIndices_[1] == hand_.HandPlayerInfoList.Count - 1))
+                    {
+                        firstPlayerToActIndex_ = blindPlayerIndices_[0];
+                    }
+                    else
+                    {
+                        firstPlayerToActIndex_ = blindPlayerIndices_[1];
+                    }
+                }
+                // only two players are left
+                else
+                {
+                    // Check to see if the blinds posted were the same. If so one of the players is all-in
+                    if (hand_.HandPlayerInfoList[0].Blind == hand_.HandPlayerInfoList[1].Blind)
+                    {
+                        // In this extremely rare case it doesn't matter who the first player to act is because no poker actions will
+                        // take place because one of the two remaining players is already all-in
+                        firstPlayerToActIndex_ = blindPlayerIndices_[0];
+                    }
+                    // With two players left the player who posted the bigger blind is the dealer -> the other player is the first to act. 
+                    if (hand_.HandPlayerInfoList[0].Blind > hand_.HandPlayerInfoList[1].Blind)
+                    {
+                        firstPlayerToActIndex_ = blindPlayerIndices_[1];
+                    }
+                    else
+                    {
+                        firstPlayerToActIndex_ = blindPlayerIndices_[0];
+                    }
+                }
+            }
+
+            return firstPlayerToActIndex_;
+        }
+
+        /// <summary>
+        /// Process a player action from the hand.PlayerActionInfoList.
+        /// </summary>
+        /// <param name="hand_">The DbPlayerHandInfoAll for the hand of interest</param>
+        /// <param name="actionIndex">The index of the player action to update</param>
+        /// <param name="playerChipsInPot_">The number of chips each player has in the pot [array]</param>
+        /// <param name="currGameId_">The game Id of the current game</param>
+        /// <param name="currNumPlayers_">The current number of players at the poker table</param>
+        /// <param name="bettingRound">The DataCounter.HandCircumstances object representing the betting round this action took place in</param>
+        /// <param name="intFirstPlayerToActIndex_">The index of the action player for this hand</param>
+        /// <param name="playerOfInterestIndex_">The index of the player of interest for this hand</param>
+        /// <param name="playerOfInterestChipStackStart_">The number of chips the player of interest had at the beggining of the hand (before blinds and antes)</param>
+        /// <param name="actionTaken_">Has there been at least one player action (bet) in this round of betting</param>
+        /// <param name="playerOfInterestFolded_">Has the player of interested folded</param>
+        /// <param name="isPreflop">Is this action taking place pre-flop</param>
+        /// <returns>Did the player of interest bet, call or fold</returns>
+        private bool ProcessPlayerAciton(DbPlayerHandInfoAll hand_, int actionIndex, int[] playerChipsInPot_, int currGameId_, 
+            int currNumPlayers_, HandCircumstances bettingRound, int intFirstPlayerToActIndex_, int playerOfInterestIndex_, 
+            int playerOfInterestChipStackStart_, ref bool actionTaken_, ref bool playerOfInterestFolded_, bool isPreflop)
+        {
+            // Did the player of interest bet, call or fold
+            bool playerOfInterestBetCallOrFoldAction = false;
+
+            // The number of chips the player had in the pot before the player acted
+            int playerChipsInPotPrev = -1;
+            // The number of chips the player has in the pot after the player acted
+            int playerChipsInPotCurr = -1;
 
             // Action made by the player of interest -> log data
-            if (hi_.HandInfo.lngHandPlayerId == hi_.lstPlayerActionInfo[intIndex].lngHandPlayerId)
+            if (hand_.HandInfo.HandPlayerId == hand_.PlayerActionInfoList[actionIndex].HandPlayerId)
             {
                 // Chips put into the pot (call or bet)
-                if (hi_.lstPlayerActionInfo[intIndex].intChipCountChange > 0)
+                if (hand_.PlayerActionInfoList[actionIndex].ChipCountChange > 0)
                 {
-                    blnPlayerAction = true;
+                    playerOfInterestBetCallOrFoldAction = true;
 
                     // This is a bet
-                    if ((intChipsInPot_[intPlayerIndex_] + hi_.lstPlayerActionInfo[intIndex].intChipCountChange) > 
-                        ChipsToCall(intChipsInPot_, hi_.lstHandPlayerInfo.Count))
+                    if ((playerChipsInPot_[playerOfInterestIndex_] + hand_.PlayerActionInfoList[actionIndex].ChipCountChange) > 
+                        ChipsToCall(playerChipsInPot_, hand_.HandPlayerInfoList.Count))
                     {
-                        blnBetMade = true;
-
-                        // This table
-                        if (hi_.HandInfo.intGameId == intCurrGameId_)
-                        {
-                            // Current number of players
-                            if (hi_.lstHandPlayerInfo.Count == intCurrNumPlayers_)
-                            {
-                                stg.actThisTableCurrNumPlayers.lngBet++;
-                                stg.actAnyTableCurrNumPlayers.lngBet++;
-                            }
-                            stg.actThisTableAnyNumPlayers.lngBet++;
-                            stg.actAnyTableAnyNumPlayers.lngBet++;
-                        }
-                        // Any table
-                        else
-                        {
-                            // Current number of players
-                            if (hi_.lstHandPlayerInfo.Count == intCurrNumPlayers_)
-                            {
-                                stg.actAnyTableCurrNumPlayers.lngBet++;
-                            }
-                            stg.actAnyTableAnyNumPlayers.lngBet++;
-                        }
+                        actionTaken_ = true;
+                        AddPokerActionBasedOnHandCircumstances(hand_, bettingRound, PokerActions.PossibleActions.Bet, currGameId_, currNumPlayers_);
                     }
                     // This is a call
                     else
                     {
-                        // This table
-                        if (hi_.HandInfo.intGameId == intCurrGameId_)
-                        {
-                            // Current number of players
-                            if (hi_.lstHandPlayerInfo.Count == intCurrNumPlayers_)
-                            {
-                                stg.actThisTableCurrNumPlayers.lngCall++;
-                                stg.actAnyTableCurrNumPlayers.lngCall++;
-                            }
-                            stg.actThisTableAnyNumPlayers.lngCall++;
-                            stg.actAnyTableAnyNumPlayers.lngCall++;
-                        }
-                        // Any table
-                        else
-                        {
-                            // Current number of players
-                            if (hi_.lstHandPlayerInfo.Count == intCurrNumPlayers_)
-                            {
-                                stg.actAnyTableCurrNumPlayers.lngCall++;
-                            }
-                            stg.actAnyTableAnyNumPlayers.lngCall++;
-                        }
+                        AddPokerActionBasedOnHandCircumstances(hand_, bettingRound, PokerActions.PossibleActions.Call, currGameId_, currNumPlayers_);
                     }
 
                     // Keep track of how many chips this player has in the pot
-                    UpdatePlayerChipsInPot(hi_, intChipsInPot_, intIndex, ref intOtherPlayerChipsInPot_Prev, ref intOtherPlayerChipsInPot_Curr);
+                    UpdatePlayerChipsInPot(hand_, playerChipsInPot_, actionIndex, ref playerChipsInPotPrev, ref playerChipsInPotCurr);
                 }
 
                 // Fold
-                else if (hi_.lstPlayerActionInfo[intIndex].intChipCountChange == 0)
+                else if (hand_.PlayerActionInfoList[actionIndex].ChipCountChange == 0)
                 {
-                    blnPlayerAction = true;
-                    blnFolded_ = true;
+                    playerOfInterestBetCallOrFoldAction = true;
+                    playerOfInterestFolded_ = true;
 
-                    // This table
-                    if (hi_.HandInfo.intGameId == intCurrGameId_)
-                    {
-                        // Current number of players
-                        if (hi_.lstHandPlayerInfo.Count == intCurrNumPlayers_)
-                        {
-                            stg.actThisTableCurrNumPlayers.lngFold++;
-                            stg.actAnyTableCurrNumPlayers.lngFold++;
-                        }
-                        stg.actThisTableAnyNumPlayers.lngFold++;
-                        stg.actAnyTableAnyNumPlayers.lngFold++;
-                    }
-                    // Any table
-                    else
-                    {
-                        // Current number of players
-                        if (hi_.lstHandPlayerInfo.Count == intCurrNumPlayers_)
-                        {
-                            stg.actAnyTableCurrNumPlayers.lngFold++;
-                        }
-                        stg.actAnyTableAnyNumPlayers.lngFold++;
-                    }
+                    AddPokerActionBasedOnHandCircumstances(hand_, bettingRound, PokerActions.PossibleActions.Fold, currGameId_, currNumPlayers_);
                 }
                 // else the player won the pot which we don't need to log here
             }
 
-            // Action made by a player other than the player of interest
+            // Action taken by a player other than the player of interest
             else
             {
                 // 1) Keep track of how many chips this player has in the pot
-                intActionPlayerIndex_ = UpdatePlayerChipsInPot(hi_, intChipsInPot_, intIndex, ref intOtherPlayerChipsInPot_Prev, 
-                    ref intOtherPlayerChipsInPot_Curr);
+                
+                // actionPlayerIndex is the index of the aciton player in this hand (hand_.HandPlayerInfoList[index])
+                int actionPlayerIndex_ = UpdatePlayerChipsInPot(hand_, playerChipsInPot_, actionIndex, ref playerChipsInPotPrev, 
+                    ref playerChipsInPotCurr);
 
-                // 2) Check to see if the player of interest checked before this player's action
-                // 2a) The betting stage is not pre-flop. Pre-flop checks are determined using another method.
-                if (!blnPreflop)
+                // 2) Check to see if the player of interest checked before this player's action so that we can log that check action
+
+                // 2a) The betting stage is not pre-flop. Pre-flop checks are determined using another method
+                if (!isPreflop)
                 {
                     // 2b) A bet was made
-                    if (intOtherPlayerChipsInPot_Curr > intOtherPlayerChipsInPot_Prev)
+                    if (playerChipsInPotCurr > playerChipsInPotPrev)
                     {
                         // 2c) This was the first bet made in this betting round
-                        if (!blnBetMade)
+                        if (!actionTaken_)
                         {
                             // 2d) The player of interest is still in this hand
-                            if (!blnFolded_)
+                            if (!playerOfInterestFolded_)
                             {
-                                // 2e) sequence is correct
-                                if ((intFirstPlayerToActIndex_ <= intPlayerIndex_ && intPlayerIndex_ < intActionPlayerIndex_) ||
-                                    (intActionPlayerIndex_ < intFirstPlayerToActIndex_ && intFirstPlayerToActIndex_ <= intPlayerIndex_) ||
-                                    (intPlayerIndex_ < intActionPlayerIndex_ && intActionPlayerIndex_ < intFirstPlayerToActIndex_))
+                                // 2e) The sequence of actions is correct
+                                if ((intFirstPlayerToActIndex_ <= playerOfInterestIndex_ && playerOfInterestIndex_ < actionPlayerIndex_) ||
+                                    (actionPlayerIndex_ < intFirstPlayerToActIndex_ && intFirstPlayerToActIndex_ <= playerOfInterestIndex_) ||
+                                    (playerOfInterestIndex_ < actionPlayerIndex_ && actionPlayerIndex_ < intFirstPlayerToActIndex_))
                                 {
-                                    // 2f) Call PlayerCheckAction. Note: PlayerCheckAction checks to see if the player is already
-                                    //     all in before adding the action to the player's action data counter
-                                    PlayerCheckAction(hi_, intCurrGameId_, intCurrNumPlayers_, intPlayerChipStackStart_, intChipsInPot_[intPlayerIndex_], stg);
-
+                                    // 2f) Check to make sure the player of interest isn't already all-in (a player is only checking if that 
+                                    // player still has chips available)
+                                    if (playerChipsInPot_[playerOfInterestIndex_] < playerOfInterestChipStackStart_)
+                                    {
+                                        // 2g) Call AddPokerActionBasedOnHandCircumstances to add a check action for the player of interest
+                                        AddPokerActionBasedOnHandCircumstances(hand_, bettingRound, PokerActions.PossibleActions.Check, 
+                                            currGameId_, currNumPlayers_);
+                                    }
                                 }
                             }
                         }
-                        blnBetMade = true;
+                        actionTaken_ = true;
                     }
                 }
             }
 
-            return blnPlayerAction;
+            return playerOfInterestBetCallOrFoldAction;
         }
 
         /// <summary>
-        /// Adds a "checked" action to the player's action data counter 
+        /// Find the largest number of chips any player has in the pot.
         /// </summary>
-        /// <param name="hi__"></param>
-        /// <param name="intCurrGameId__"></param>
-        /// <param name="intCurrNumPlayers__"></param>
-        /// <param name="intPlayerChipStackStart__"></param>
-        /// <param name="intPlayerChipsInPot"></param>
-        /// <param name="stg_"></param>
-        private void PlayerCheckAction(DbPlayerHandInfoAll hi__, int intCurrGameId__, int intCurrNumPlayers__, int intPlayerChipStackStart__, 
-            int intPlayerChipsInPot, HandCircumstances stg_)
+        /// <param name="playerChipsInPot__">The number of chips each player has in the pot [array]</param>
+        /// <param name="playerInHand">The number of players in the current hand</param>
+        /// <returns>The largest number of chips any player has in the pot</returns>
+        private int ChipsToCall(int[] playerChipsInPot__, int playerInHand)
         {
-            // The player is only checking if he still has chips available, if not he is already all in
-            if (intPlayerChipStackStart__ > intPlayerChipsInPot)
+            int maxChipsBetThisRound = 0;
+
+            for (int i = 0; i < playerInHand; i++)
             {
-                // The player has checked
-                if (hi__.HandInfo.intGameId == intCurrGameId__)
+                if (playerChipsInPot__[i] > maxChipsBetThisRound)
                 {
-                    // Current number of players
-                    if (hi__.lstHandPlayerInfo.Count == intCurrNumPlayers__)
-                    {
-                        stg_.actThisTableCurrNumPlayers.lngCheck++;
-                        stg_.actAnyTableCurrNumPlayers.lngCheck++;
-                    }
-                    stg_.actThisTableAnyNumPlayers.lngCheck++;
-                    stg_.actAnyTableAnyNumPlayers.lngCheck++;
+                    maxChipsBetThisRound = playerChipsInPot__[i];
                 }
-                // Any table
-                else
+            }
+
+            return maxChipsBetThisRound;
+        }
+
+        /// <summary>
+        /// Add a poker action to appropriate HandCircumstances and betting round of the ActionLog. 
+        /// </summary>
+        /// <param name="hand__">The DbPlayerHandInfoAll for the hand of interest</param>
+        /// <param name="bettingRound_">The DataCounter.HandCircumstances object representing the betting round of the hand you wish to add an action to</param>
+        /// <param name="pokerAction">The poker action you wish to add (bet, call, check, fold)</param>
+        /// <param name="currGameId__">The game Id of the current game</param>
+        /// <param name="currNumPlayers__">The current number of players at the poker table</param>
+        private void AddPokerActionBasedOnHandCircumstances(DbPlayerHandInfoAll hand__, HandCircumstances bettingRound_,
+            PokerActions.PossibleActions pokerAction, int currGameId__, int currNumPlayers__)
+        {
+            bool incrementThisTableCurrNumPlayers = false;
+            bool incrementThisTableAnyNumPlayers = false;
+            bool incrementAnyTableCurrNumPlayers = false;
+            bool incrementAnyTableAnyNumPlayers = false;
+
+            // This is the current table (current game being played)
+            if (hand__.HandInfo.GameId == currGameId__)
+            {
+                // This action took place with the same number of players at the table as are currently at the table
+                if (hand__.HandPlayerInfoList.Count == currNumPlayers__)
                 {
-                    // Current number of players
-                    if (hi__.lstHandPlayerInfo.Count == intCurrNumPlayers__)
-                    {
-                        stg_.actAnyTableCurrNumPlayers.lngCheck++;
-                    }
-                    stg_.actAnyTableAnyNumPlayers.lngCheck++;
+                    incrementThisTableCurrNumPlayers = true;
+                    incrementAnyTableCurrNumPlayers = true;
+                }
+                incrementThisTableAnyNumPlayers = true;
+                incrementAnyTableAnyNumPlayers = true;
+            }
+            // Any table
+            else
+            {
+                // This action took place with the same number of players at the table as are currently at the current table
+                if (hand__.HandPlayerInfoList.Count == currNumPlayers__)
+                {
+                    incrementAnyTableCurrNumPlayers = true;
+                }
+                incrementAnyTableAnyNumPlayers = true;
+            }
+
+            // Apply these actions to the correct hand circumstances and betting round
+            if (pokerAction == PokerActions.PossibleActions.Bet)
+            {
+                if (incrementThisTableCurrNumPlayers)
+                {
+                    bettingRound_.ThisTableCurrNumPlayers.Bet++;
+                }
+                if (incrementThisTableAnyNumPlayers)
+                {
+                    bettingRound_.ThisTableAnyNumPlayers.Bet++;
+                }
+                if (incrementAnyTableCurrNumPlayers)
+                {
+                    bettingRound_.AnyTableCurrNumPlayers.Bet++;
+                }
+                if (incrementAnyTableAnyNumPlayers)
+                {
+                    bettingRound_.AnyTableAnyNumPlayers.Bet++;
+                }
+            }
+            else if (pokerAction == PokerActions.PossibleActions.Call)
+            {
+                if (incrementThisTableCurrNumPlayers)
+                {
+                    bettingRound_.ThisTableCurrNumPlayers.Call++;
+                }
+                if (incrementThisTableAnyNumPlayers)
+                {
+                    bettingRound_.ThisTableAnyNumPlayers.Call++;
+                }
+                if (incrementAnyTableCurrNumPlayers)
+                {
+                    bettingRound_.AnyTableCurrNumPlayers.Call++;
+                }
+                if (incrementAnyTableAnyNumPlayers)
+                {
+                    bettingRound_.AnyTableAnyNumPlayers.Call++;
+                }
+            }
+            else if (pokerAction == PokerActions.PossibleActions.Check)
+            {
+                if (incrementThisTableCurrNumPlayers)
+                {
+                    bettingRound_.ThisTableCurrNumPlayers.Check++;
+                }
+                if (incrementThisTableAnyNumPlayers)
+                {
+                    bettingRound_.ThisTableAnyNumPlayers.Check++;
+                }
+                if (incrementAnyTableCurrNumPlayers)
+                {
+                    bettingRound_.AnyTableCurrNumPlayers.Check++;
+                }
+                if (incrementAnyTableAnyNumPlayers)
+                {
+                    bettingRound_.AnyTableAnyNumPlayers.Check++;
+                }
+            }
+            else if (pokerAction == PokerActions.PossibleActions.Fold)
+            {
+                if (incrementThisTableCurrNumPlayers)
+                {
+                    bettingRound_.ThisTableCurrNumPlayers.Fold++;
+                }
+                if (incrementThisTableAnyNumPlayers)
+                {
+                    bettingRound_.ThisTableAnyNumPlayers.Fold++;
+                }
+                if (incrementAnyTableCurrNumPlayers)
+                {
+                    bettingRound_.AnyTableCurrNumPlayers.Fold++;
+                }
+                if (incrementAnyTableAnyNumPlayers)
+                {
+                    bettingRound_.AnyTableAnyNumPlayers.Fold++;
                 }
             }
         }
 
         /// <summary>
-        /// Finds the most chips that any player currently has in the pot
+        /// Update the number of chips the player that acted has in the pot.
         /// </summary>
-        /// <param name="intChipsBetThisRound"></param>
-        /// <param name="intChipsBetThisRoundLength"></param>
-        /// <returns></returns>
-        private int ChipsToCall(int[] intChipsBetThisRound, int intChipsBetThisRoundLength)
+        /// <param name="hand__">The DbPlayerHandInfoAll for the hand of interest</param>
+        /// <param name="playerChipsInPot__">The number of chips each player has in the pot [array]</param>
+        /// <param name="actionIndex_">The index of the player action to update</param>
+        /// <param name="chipsPrev">The number of chips the action player had before the action</param>
+        /// <param name="chipsCurr">The number of chips the action player currently has (after the action was completed)</param>
+        /// <returns>The index of the action player</returns>
+        private int UpdatePlayerChipsInPot(DbPlayerHandInfoAll hand__, int[] playerChipsInPot__, int actionIndex_,
+            ref int chipsPrev, ref int chipsCurr)
         {
-            int intMaxChipsBetThisRound = 0;
+            // The index of the action player
+            int actionPlayerIndex = -1;
 
-            for (int i = 0; i < intChipsBetThisRoundLength; i++)
+            // Loop through all the players in the hand
+            for (int i = 0; i < hand__.HandPlayerInfoList.Count; i++)
             {
-                if (intChipsBetThisRound[i] > intMaxChipsBetThisRound)
+                // If the HandPlayerId for this action equals the HandPlayerId in the hand__.HandPlayerInfoList[i] then "i" is the
+                // correct playerChipsInPot__ index
+                if (hand__.PlayerActionInfoList[actionIndex_].HandPlayerId == hand__.HandPlayerInfoList[i].HandPlayerId)
                 {
-                    intMaxChipsBetThisRound = intChipsBetThisRound[i];
-                }
-            }
+                    chipsPrev = playerChipsInPot__[i];
+                    playerChipsInPot__[i] += hand__.PlayerActionInfoList[actionIndex_].ChipCountChange;
+                    chipsCurr = playerChipsInPot__[i];
 
-            return intMaxChipsBetThisRound;
-        }
-
-        /// <summary>
-        /// Update the number of chips the player that acted has in the pot
-        /// </summary>
-        /// <param name="hi__"></param>
-        /// <param name="intChipsInPot__"></param>
-        /// <param name="intPlayerActionIndex"></param>
-        /// <param name="intChipsPrev"></param>
-        /// <param name="intChipsCurr"></param>
-        /// <returns></returns>
-        private int UpdatePlayerChipsInPot(DbPlayerHandInfoAll hi__, int[] intChipsInPot__, int intPlayerActionIndex, 
-            ref int intChipsPrev, ref int intChipsCurr)
-        {
-            int intActionPlayerIndex = -1;
-
-            // loop through the number of players in the hand
-            for (int i = 0; i < hi__.lstHandPlayerInfo.Count; i++)
-            {
-                // if the lngHandPlayerId for this action equals the lngHandPlayerId in the hi__.lstHandPlayerInfo[i] then "i" is the
-                // correct intChipsInPot__ index
-                if (hi__.lstPlayerActionInfo[intPlayerActionIndex].lngHandPlayerId == hi__.lstHandPlayerInfo[i].lngHandPlayerId)
-                {
-                    intChipsPrev = intChipsInPot__[i];
-                    intChipsInPot__[i] += hi__.lstPlayerActionInfo[intPlayerActionIndex].intChipCountChange;
-                    intChipsCurr = intChipsInPot__[i];
-
-                    intActionPlayerIndex = i;
+                    actionPlayerIndex = i;
                     break;
                 }
             }
 
-            return intActionPlayerIndex;
+            return actionPlayerIndex;
         }
 
-        long DataSampleCount(Action act_)
+        /// <summary>
+        /// Test to see if there was a preflop check that needs to be logged. If there was log that check action for the player of interest.
+        /// </summary>
+        /// <param name="hand_">The DbPlayerHandInfoAll for the hand of interest</param>
+        /// <param name="actionLog_">The record of all the player of interest's actions</param>
+        /// <param name="logPlayerOfInterestPreFlopCheck_">Does a preflop check need to be logged for the player of interest</param>
+        /// <param name="playerChipsInPot_">The number of chips each player has in the pot [array]</param>
+        /// <param name="playerChipStackStart_">The number of chips each player had at the beginning of the hand (before blinds and antes) [array]</param>
+        /// <param name="playerOfInterestIndex_">The index of the player of interest for this hand</param>
+        /// <param name="currGameId_">The game Id of the current game</param>
+        /// <param name="currNumPlayers_">The current number of players at the poker table</param>
+        private void TestForPreflopCheckAction(DbPlayerHandInfoAll hand_, DataCounter actionLog_, ref bool logPlayerOfInterestPreFlopCheck_, 
+            int[] playerChipsInPot_, int[] playerChipStackStart_, int playerOfInterestIndex_, int currGameId_, int currNumPlayers_)
         {
-            return act_.lngFold + act_.lngCheck + act_.lngCall + act_.lngBet;
+            // The player of interest didn't bet, call or fold preflop. Other player(s) remain in the hand who are not all-in
+            if (logPlayerOfInterestPreFlopCheck_ && 
+                !RemainingPlayersAllIn(playerChipsInPot_, playerChipStackStart_, playerOfInterestIndex_, hand_.HandPlayerInfoList.Count))
+            {
+                // The player of interest is not all-in
+                if (playerChipsInPot_[playerOfInterestIndex_] < playerChipStackStart_[playerOfInterestIndex_])
+                {
+                    // The player of interest checked pre-flop
+                    AddPokerActionBasedOnHandCircumstances(hand_, actionLog_.Preflop, PokerActions.PossibleActions.Check,
+                        currGameId_, currNumPlayers_);
+                }
+                logPlayerOfInterestPreFlopCheck_ = false;
+            }
         }
 
-        string GetPiePercentage(Action act_, int intActionIndex)
+        /// <summary>
+        /// Test to see if there was a check on the flop that needs to be logged. If there was log that check action for the player of interest.
+        /// </summary>
+        /// <param name="hand_">The DbPlayerHandInfoAll for the hand of interest</param>
+        /// <param name="actionLog_">The record of all the player of interest's actions</param>
+        /// <param name="flopActionTaken_">Has there been at least one player action (bet, call, check or fold) logged for the flop</param>
+        /// <param name="playerChipsInPot_">The number of chips each player has in the pot [array]</param>
+        /// <param name="playerChipStackStart_">The number of chips each player had at the beginning of the hand (before blinds and antes) [array]</param>
+        /// <param name="playerOfInterestIndex_">The index of the player of interest for this hand</param>
+        /// <param name="currGameId_">The game Id of the current game</param>
+        /// <param name="currNumPlayers_">The current number of players at the poker table</param>
+        private void TestForFlopCheckAction(DbPlayerHandInfoAll hand_, DataCounter actionLog_, ref bool flopActionTaken_,
+            int[] playerChipsInPot_, int[] playerChipStackStart_, int playerOfInterestIndex_, int currGameId_, int currNumPlayers_)
         {
-            string strPercentage = "Error!!!";
-
-            if (intActionIndex == 0)
+            // No player bet on the flop. Other player(s) remain in the hand who are not all-in
+            if (!flopActionTaken_ && 
+                !RemainingPlayersAllIn(playerChipsInPot_, playerChipStackStart_, playerOfInterestIndex_, hand_.HandPlayerInfoList.Count))
             {
-                if (act_.lngFold > 0)
+                // The player of interest is not all-in
+                if (playerChipsInPot_[playerOfInterestIndex_] < playerChipStackStart_[playerOfInterestIndex_])
                 {
-                    strPercentage = (100.0 * (act_.lngFold) / (act_.lngFold + act_.lngCheck + act_.lngCall + act_.lngBet)).ToString("f0") + "%";
+                    // The player of interest checked on the flop
+                    AddPokerActionBasedOnHandCircumstances(hand_, actionLog_.Flop, PokerActions.PossibleActions.Check,
+                        currGameId_, currNumPlayers_);
                 }
-                else
-                {
-                    strPercentage = "";
-                }
+                flopActionTaken_ = true;
             }
-            else if (intActionIndex == 1)
-            {
-                if (act_.lngCheck > 0)
-                {
-                    strPercentage = (100.0 * (act_.lngCheck) / (act_.lngFold + act_.lngCheck + act_.lngCall + act_.lngBet)).ToString("f0") + "%";
-                }
-                else
-                {
-                    strPercentage = "";
-                }
-            }
-            else if (intActionIndex == 2)
-            {
-                if (act_.lngCall > 0)
-                {
-                    strPercentage = (100.0 * (act_.lngCall) / (act_.lngFold + act_.lngCheck + act_.lngCall + act_.lngBet)).ToString("f0") + "%";
-                }
-                else
-                {
-                    strPercentage = "";
-                }
-            }
-            else if (intActionIndex == 3)
-            {
-                if (act_.lngBet > 0)
-                {
-                    strPercentage = (100.0 * (act_.lngBet) / (act_.lngFold + act_.lngCheck + act_.lngCall + act_.lngBet)).ToString("f0") + "%";
-                }
-                else
-                {
-                    strPercentage = "";
-                }
-            }
-
-            return strPercentage;
         }
 
-        private bool RemainingPlayersAllIn(int[] intChipsInPot_, int[] intPlayerChipStackStart_, int intPlayerIndex_, int intNumPlayers)
+        /// <summary>
+        /// Test to see if there was a check on the turn that needs to be logged. If there was log that check action for the player of interest.
+        /// </summary>
+        /// <param name="hand_">The DbPlayerHandInfoAll for the hand of interest</param>
+        /// <param name="actionLog_">The record of all the player of interest's actions</param>
+        /// <param name="turnActionTaken_">Has there been at least one player action (bet, call, check or fold) logged for the turn</param>
+        /// <param name="playerChipsInPot_">The number of chips each player has in the pot [array]</param>
+        /// <param name="playerChipStackStart_">The number of chips each player had at the beginning of the hand (before blinds and antes) [array]</param>
+        /// <param name="playerOfInterestIndex_">The index of the player of interest for this hand</param>
+        /// <param name="currGameId_">The game Id of the current game</param>
+        /// <param name="currNumPlayers_">The current number of players at the poker table</param>
+        private void TestForTurnCheckAction(DbPlayerHandInfoAll hand_, DataCounter actionLog_, ref bool turnActionTaken_,
+            int[] playerChipsInPot_, int[] playerChipStackStart_, int playerOfInterestIndex_, int currGameId_, int currNumPlayers_)
         {
-            bool blnRemainingPlayersAllIn = true;
-
-            for (int i = 0; i < intNumPlayers; i++)
+            // No player bet on the turn. Other player(s) remain in the hand who are not all-in
+            if (!turnActionTaken_ && 
+                !RemainingPlayersAllIn(playerChipsInPot_, playerChipStackStart_, playerOfInterestIndex_, hand_.HandPlayerInfoList.Count))
             {
-                if (i != intPlayerIndex_)
+                // The player of interest is not all-in
+                if (playerChipsInPot_[playerOfInterestIndex_] < playerChipStackStart_[playerOfInterestIndex_])
                 {
-                    if (intChipsInPot_[i] == intChipsInPot_[intPlayerIndex_])
+                    // The player of interest checked on the turn
+                    AddPokerActionBasedOnHandCircumstances(hand_, actionLog_.Turn, PokerActions.PossibleActions.Check,
+                        currGameId_, currNumPlayers_);
+                }
+                turnActionTaken_ = true;
+            }
+        }
+
+        /// <summary>
+        /// Test to see if there was a check on the river that needs to be logged. If there was log that check action for the player of interest.
+        /// </summary>
+        /// <param name="hand_">The DbPlayerHandInfoAll for the hand of interest</param>
+        /// <param name="actionLog_">The record of all the player of interest's actions</param>
+        /// <param name="riverActionTaken_">>Has there been at least one player action (bet, call, check or fold) logged for the river</param>
+        /// <param name="playerChipsInPot_">The number of chips each player has in the pot [array]</param>
+        /// <param name="playerChipStackStart_">The number of chips each player had at the beginning of the hand (before blinds and antes) [array]</param>
+        /// <param name="playerOfInterestIndex_">The index of the player of interest for this hand</param>
+        /// <param name="currGameId_">The game Id of the current game</param>
+        /// <param name="currNumPlayers_">The current number of players at the poker table</param>
+        private void TestForRiverCheckAction(DbPlayerHandInfoAll hand_, DataCounter actionLog_, ref bool riverActionTaken_,
+            int[] playerChipsInPot_, int[] playerChipStackStart_, int playerOfInterestIndex_, int currGameId_, int currNumPlayers_)
+        {
+            // No player bet on the river. Other player(s) remain in the hand who are not all-in
+            if (!riverActionTaken_ && 
+                !RemainingPlayersAllIn(playerChipsInPot_, playerChipStackStart_, playerOfInterestIndex_, hand_.HandPlayerInfoList.Count))
+            {
+                // The player of interest is not all-in
+                if (playerChipsInPot_[playerOfInterestIndex_] < playerChipStackStart_[playerOfInterestIndex_])
+                {
+                    // The player of interest checked on the river
+                    AddPokerActionBasedOnHandCircumstances(hand_, actionLog_.River, PokerActions.PossibleActions.Check,
+                        currGameId_, currNumPlayers_);
+                }
+                riverActionTaken_ = true;
+            }
+        }
+
+        /// <summary>
+        /// Check to see if all other players, excluding the specified player, that remain in the hand are all-in.
+        /// </summary>
+        /// <param name="playerChipsInPot_">The number of chips each player has in the pot [array]</param>
+        /// <param name="playerChipStackStart_">The number of chips each player had at the beginning of the hand (before blinds and antes) [array]</param>
+        /// <param name="playerIndex_">The index of the player that is excluded from the all-in check</param>
+        /// <param name="numPlayers">The number of players in the hand at the beginning of the hand</param>
+        /// <returns>True if all the remaining players, excluding the specified player, are all-in</returns>
+        private bool RemainingPlayersAllIn(int[] playerChipsInPot__, int[] playerChipStackStart__, int playerIndex__, int numPlayers)
+        {
+            bool remainingPlayersAllIn = true;
+
+            for (int i = 0; i < numPlayers; i++)
+            {
+                if (i != playerIndex__)
+                {
+                    // The current player has the same number of chips in the pot as the player of interest
+                    if (playerChipsInPot__[i] == playerChipsInPot__[playerIndex__])
                     {
-                        // The current player has the same number of chips in the pot as the player of interest
-                        if (intChipsInPot_[i] < intPlayerChipStackStart_[i])
+                        // The current player is not all-in
+                        if (playerChipsInPot__[i] < playerChipStackStart__[i])
                         {
-                            // The current player is not currently all-in
-                            blnRemainingPlayersAllIn = false;
+                            remainingPlayersAllIn = false;
                         }
                     }
                 }
             }
 
-            return blnRemainingPlayersAllIn;
-        }
-
-        private void NoDataChart(int intChartSetIndex_, int intChartIndex, frmDataDisplay frm_)
-        {
-            frm_.chtQuad[intChartSetIndex_][intChartIndex].Series[0].Points[0].Color = Color.DarkGray;
-
-            frm_.chtQuad[intChartSetIndex_][intChartIndex].Series[0].Points[0].SetValueXY("", 1);
-            frm_.chtQuad[intChartSetIndex_][intChartIndex].Series[0].Points[1].SetValueXY("", 0);
-            frm_.chtQuad[intChartSetIndex_][intChartIndex].Series[0].Points[2].SetValueXY("", 0);
-            frm_.chtQuad[intChartSetIndex_][intChartIndex].Series[0].Points[3].SetValueXY("", 0);
-
-            frm_.lblChartNoData[intChartSetIndex_][intChartIndex].Visible = true;
+            return remainingPlayersAllIn;
         }
 
         #endregion
 
-        #region Classes
+        #region Chart Stuff
 
-        public class DataCounter
+        /// <summary>
+        /// Plot a single pie chart with the action data contained in the PokerActions object.
+        /// </summary>
+        /// <param name="roundAndCircumstancesData">The action data for a given betting round and set of circumstances</param>
+        /// <param name="chartToUpdate">The chart the data will be plotted on</param>
+        /// <param name="chartNoDataLabel">The "No Data" label of the chart the data will be plotted on</param>
+        /// <param name="chartSampleCount">The number of data points contained in the PokerActions object</param>
+        /// <param name="isChartUpdated">The variable that indicates that the chart data has been updated</param>
+        private void PlotChart(PokerActions roundAndCircumstancesData, MyChart chartToUpdate, Label chartNoDataLabel, 
+            Label chartSampleCount, ref bool isChartUpdated)
         {
-            public HandCircumstances cirPreFlop;
-            public HandCircumstances cirFlop;
-            public HandCircumstances cirTurn;
-            public HandCircumstances cirRiver;
+            // The number of data points to be plotted for this betting round and set of circumstances(this table, any table, this number of players, any number of players)
+            long dataPointCount = DataSampleCount(roundAndCircumstancesData);
 
-            public DataCounter()
+            if (dataPointCount > 0)
             {
-                cirPreFlop = new HandCircumstances();
-                cirFlop = new HandCircumstances();
-                cirTurn = new HandCircumstances();
-                cirRiver = new HandCircumstances();
+                chartToUpdate.Series[0].Points[0].Color = Color.SpringGreen;
+
+                chartToUpdate.Series[0].Points[0].SetValueXY(GetPiePercentage(roundAndCircumstancesData, PokerActions.PossibleActions.Fold),
+                    roundAndCircumstancesData.Fold);
+                chartToUpdate.Series[0].Points[1].SetValueXY(GetPiePercentage(roundAndCircumstancesData, PokerActions.PossibleActions.Check),
+                    roundAndCircumstancesData.Check);
+                chartToUpdate.Series[0].Points[2].SetValueXY(GetPiePercentage(roundAndCircumstancesData, PokerActions.PossibleActions.Call),
+                    roundAndCircumstancesData.Call);
+                chartToUpdate.Series[0].Points[3].SetValueXY(GetPiePercentage(roundAndCircumstancesData, PokerActions.PossibleActions.Bet),
+                    roundAndCircumstancesData.Bet);
+
+                chartNoDataLabel.Visible = false;
             }
+            else
+            {
+                NoDataChart(chartToUpdate, chartNoDataLabel);
+            }
+
+            chartSampleCount.Text = dataPointCount.ToString();
+            isChartUpdated = true;
         }
 
-        public class HandCircumstances
+        /// <summary>
+        /// The total number of data points for this betting round and set of circumstances (this table, any table, this number of players, any number of players).
+        /// </summary>
+        /// <param name="roundAndCircumstancesData">The action data for a given betting round and set of circumstances</param>
+        /// <returns>The total number of data points for this betting round and set of circumstances</returns>
+        private long DataSampleCount(PokerActions roundAndCircumstancesData)
         {
-            public Action actThisTableCurrNumPlayers;
-            public Action actThisTableAnyNumPlayers;
-            public Action actAnyTableCurrNumPlayers;
-            public Action actAnyTableAnyNumPlayers;
-
-            public HandCircumstances()
-            {
-                actThisTableCurrNumPlayers = new Action();
-                actThisTableAnyNumPlayers = new Action();
-                actAnyTableCurrNumPlayers = new Action();
-                actAnyTableAnyNumPlayers = new Action();
-            }
+            return roundAndCircumstancesData.Fold + roundAndCircumstancesData.Check + roundAndCircumstancesData.Call + roundAndCircumstancesData.Bet;
         }
 
-        public class Action
+        /// <summary>
+        /// Get the percentage occurrence of a specific action type.
+        /// </summary>
+        /// <param name="act_">The object containing all the poker actions</param>
+        /// <param name="intActionIndex">The specific poker action to find the percentage occurrence of</param>
+        /// <returns>The percentage occurrence of a specific poker action</returns>
+        private string GetPiePercentage(PokerActions act_, PokerActions.PossibleActions actionType)
         {
-            public long lngFold;
-            public long lngCheck;
-            public long lngCall;
-            public long lngBet;
+            string percentageOccurrence = "Error!!!";
 
-            public Action()
+            // The total number of poker actions
+            long totalNumActions = act_.Fold + act_.Check + act_.Call + act_.Bet;
+
+            if (actionType == PokerActions.PossibleActions.Fold)
             {
-                lngFold = 0;
-                lngCheck = 0;
-                lngCall = 0;
-                lngBet = 0;
+                if (act_.Fold > 0)
+                {
+                    percentageOccurrence = (100.0 * (act_.Fold) / totalNumActions).ToString("f0") + "%";
+                }
+                else
+                {
+                    percentageOccurrence = "";
+                }
             }
+            else if (actionType == PokerActions.PossibleActions.Check)
+            {
+                if (act_.Check > 0)
+                {
+                    percentageOccurrence = (100.0 * (act_.Check) / totalNumActions).ToString("f0") + "%";
+                }
+                else
+                {
+                    percentageOccurrence = "";
+                }
+            }
+            else if (actionType == PokerActions.PossibleActions.Call)
+            {
+                if (act_.Call > 0)
+                {
+                    percentageOccurrence = (100.0 * (act_.Call) / totalNumActions).ToString("f0") + "%";
+                }
+                else
+                {
+                    percentageOccurrence = "";
+                }
+            }
+            else if (actionType == PokerActions.PossibleActions.Bet)
+            {
+                if (act_.Bet > 0)
+                {
+                    percentageOccurrence = (100.0 * (act_.Bet) / totalNumActions).ToString("f0") + "%";
+                }
+                else
+                {
+                    percentageOccurrence = "";
+                }
+            }
+
+            return percentageOccurrence;
+        }
+
+        /// <summary>
+        /// Create a pie chart for a betting round and set of circumstances where no data exists.
+        /// </summary>
+        /// <param name="chartToUpdate_">The chart the data will be plotted on</param>
+        /// <param name="chartNoDataLabel_">The "No Data" label of the chart the data will be plotted on</param>
+        private void NoDataChart(MyChart chartToUpdate_, Label chartNoDataLabel_)
+        {
+            chartToUpdate_.Series[0].Points[0].Color = Color.DarkGray;
+
+            chartToUpdate_.Series[0].Points[0].SetValueXY("", 1);
+            chartToUpdate_.Series[0].Points[1].SetValueXY("", 0);
+            chartToUpdate_.Series[0].Points[2].SetValueXY("", 0);
+            chartToUpdate_.Series[0].Points[3].SetValueXY("", 0);
+
+            chartNoDataLabel_.Visible = true;
+        }
+
+        /// <summary>
+        /// Add the poker actions from a single player to the sum of poker actions.
+        /// </summary>
+        /// <param name="sumOfActions">The sum of poker actions</param>
+        /// <param name="singlePlayerActions">The poker actions of a single player</param>
+        private void AddPokerActionsToSum(PokerActions sumOfActions, PokerActions singlePlayerActions)
+        {
+            sumOfActions.Fold += singlePlayerActions.Fold;
+            sumOfActions.Check += singlePlayerActions.Check;
+            sumOfActions.Call += singlePlayerActions.Call;
+            sumOfActions.Bet += singlePlayerActions.Bet;
         }
 
         #endregion
 
+        #endregion
     }
 }

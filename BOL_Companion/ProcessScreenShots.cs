@@ -11,1577 +11,1488 @@ namespace BOL_Companion
 {
     class ProcessScreenShots
     {
-        #region Varibale Definitions
-        private bool blnDisposeScreenShotResources, blnAvitarPresent, blnPlayerSittingOut, blnBannerPresent;
-        private const int intDyPlayerInfo = 106;
-        private const int intHcStatusDx1 = 59;
-        private const int intHcStatusDx2 = 73;
-        private const int intHcStatusDy1 = 89;
-        private const int intHcStatusDy2 = 65;
-        private const int intHc1Dx = 57;
-        private const int intHc2Dx = 99;
-        private const int intHcDy = 6;
-        private const int intCardDx = 32;
-        private const int intCardDy = 50;
-        private int intIdentifier;
-        private int[][,] intLocations;
-        private string strBmpSaveLocation;
-        private Point pntOpenSeatCheckPixel_1, pntOpenSeatCheckPixel_2, pntAvitarPresentCheckPixel_1, pntAvitarPresentCheckPixel_2;
-        private Point pntFirstHoldCardPresent_1, pntFirstHoldCardPresent_2, pntFirstHoldCardPresent_3, pntFirstHoldCardPresent_4;
-        private Point pntSecondHoldCardPresent_1, pntSecondHoldCardPresent_2, pntSecondHoldCardPresent_3, pntSecondHoldCardPresent_4;
-        private Point pntBannerPresentCheck, pntBoardCardSuitCheck_1, pntBoardCardSuitCheck_2, pntBoardCardSuitCheck_3;
-        private Point pntHc1SuitCheck_1, pntHc1SuitCheck_2, pntHc1SuitCheck_3, pntHc2SuitCheck_1, pntHc2SuitCheck_2, pntHc2SuitCheck_3;
-        private Bitmap bmpScreenShot;
-        private Graphics gfxScreenShot;
-        private CardStringIntTranslator cdt;
+        #region Static Constants
+
+        /// <summary>
+        /// The player's chips stack value cannot be read because the player's information is covered by a banner displaying other information
+        /// </summary>
+        public static int ChipStackValueCoverdByBanner { get; } = -2;
+
+        /// <summary>
+        /// No string was found for the value of the pot
+        /// </summary>
+        public static int NoPotParsingError { get; } = -2;
+
+        /// <summary>
+        /// An error occured while parsing the value of the player's chip stack
+        /// </summary>
+        public static int PlayerChipStackParseError = -3;
 
         #endregion
 
-        public ProcessScreenShots(int intId, string strBmpSaveLoc)
+        #region Varibale Definitions
+
+        /// <summary>
+        /// Should the bitmap and graphics objects containing the screenshot be disposed 
+        /// </summary>
+        private bool disposeScreenShotResources;
+
+        /// <summary>
+        /// Is there an avatar in the player information display box
+        /// </summary>
+        private bool isAvatarPresent;
+
+        /// <summary>
+        /// Is the player sitting out
+        /// </summary>
+        private bool isPlayerSittingOut;
+
+        /// <summary>
+        /// Is there a banner present (blocking the player data) inside the player information box
+        /// </summary>
+        private bool isBannerPresent;
+
+        /// <summary>
+        /// The identifier for this instance of the ProcessScreenShots class:
+        /// 0 - 9 = the players at the table (9 or 10-player table),
+        /// 10 - 14 = the 5 possible board cards (flop, turn, river),
+        /// 15 = the pot,
+        /// 16 = action player and dealer determination
+        /// </summary>
+        private int id;
+
+        /// <summary>
+        /// The location where the bitmap files will be saved if the user choses to save the bitmap files that are used for processing the data on the screen
+        /// </summary>
+        private string bmpSaveLocation;
+
+        /// <summary>
+        /// The pixel location to check to determine if there is a banner present inside the player information box
+        /// </summary>
+        private Point bannerPresentPixel;
+
+        /// <summary>
+        /// The pixel locations to check to determine if a seat is open (no player in the seat)
+        /// </summary>
+        private Point[] openSeatCheckPixel;
+
+        /// <summary>
+        /// The pixel locations to check to determine the suit of the first hold card
+        /// </summary>
+        private Point[] hc1SuitCheckPixel;
+
+        /// <summary>
+        /// The pixel locations to check to determine the suit of the second hold card
+        /// </summary>
+        private Point[] hc2SuitCheckPixel;
+
+        /// <summary>
+        /// The pixel locations to check to determine the status (face down, face up, not present) of a player's first hold card 
+        /// </summary>
+        private Point[] firstHcStatusPixel;
+
+        /// <summary>
+        /// The pixel locations to check to determine the status (face down, face up, not present) of a player's second hold card 
+        /// </summary>
+        private Point[] secondHcStatusPixel;
+
+        /// <summary>
+        /// The pixel locations to check to determine if a player has an avatar in their information dispaly box
+        /// </summary>
+        private Point[] avatarPresentCheckPixel;
+
+        /// <summary>
+        /// The pixel locations to check to determine the suit of a board card
+        /// </summary>
+        private Point[] boardCardSuitCheckPixel;
+        
+        /// <summary>
+        /// The screenshot bitmap this object is using to determine the state of the online poker game
+        /// </summary>
+        private Bitmap screenShotBitmap;
+
+        /// <summary>
+        /// Screenshot graphics object
+        /// </summary>
+        private Graphics screenShotGraphics;
+
+        #endregion
+
+        public ProcessScreenShots(int idIn, string bmpSaveLocationIn)
         {
-            intIdentifier = intId;
-            strBmpSaveLocation = strBmpSaveLoc;
+            id = idIn;
+            bmpSaveLocation = bmpSaveLocationIn;
 
             InitializeVariables();
-            InitializeArrays();
         }
 
+        /// <summary>
+        /// Initialize the class level variables for this object.
+        /// </summary>
         private void InitializeVariables()
         {
-            pntOpenSeatCheckPixel_1 = new Point(0, 0);
-            pntOpenSeatCheckPixel_2 = new Point(0, 0);
-            pntAvitarPresentCheckPixel_1 = new Point(0, 0);
-            pntAvitarPresentCheckPixel_2 = new Point(0, 0);
-            pntFirstHoldCardPresent_1 = new Point(0, 0);
-            pntFirstHoldCardPresent_2 = new Point(0, 0);
-            pntFirstHoldCardPresent_3 = new Point(0, 0);
-            pntFirstHoldCardPresent_4 = new Point(0, 0);
-            pntSecondHoldCardPresent_1 = new Point(0, 0);
-            pntSecondHoldCardPresent_2 = new Point(0, 0);
-            pntSecondHoldCardPresent_3 = new Point(0, 0);
-            pntSecondHoldCardPresent_4 = new Point(0, 0);
-            pntBannerPresentCheck = new Point(0, 0);
-            pntBoardCardSuitCheck_1 = new Point(0, 0);
-            pntBoardCardSuitCheck_2 = new Point(0, 0);
-            pntBoardCardSuitCheck_3 = new Point(0, 0);
-            pntHc1SuitCheck_1 = new Point(0, 0);
-            pntHc1SuitCheck_2 = new Point(0, 0);
-            pntHc1SuitCheck_3 = new Point(0, 0);
-            pntHc2SuitCheck_1 = new Point(0, 0);
-            pntHc2SuitCheck_2 = new Point(0, 0);
-            pntHc2SuitCheck_3 = new Point(0, 0);
-            blnAvitarPresent = false;
-            blnPlayerSittingOut = false;
-            blnDisposeScreenShotResources = false;
-            cdt = new CardStringIntTranslator();
+            disposeScreenShotResources = false;
+            isAvatarPresent = false;
+            isPlayerSittingOut = false;
+            bannerPresentPixel = new Point(0, 0);
+            openSeatCheckPixel = new Point[] { new Point(84, 30 + DataLocations.DyPlayerNameAndChipstack),
+                new Point(85, 30 + DataLocations.DyPlayerNameAndChipstack)};
+            hc1SuitCheckPixel = new Point[3];
+            hc2SuitCheckPixel = new Point[3];
+            firstHcStatusPixel = new Point[4];
+            secondHcStatusPixel = new Point[4];
+            avatarPresentCheckPixel = new Point[2];
+            boardCardSuitCheckPixel = new Point[3];
         }
 
         #region Public Methods
 
-        public bool OpenSeat()
+        /// <summary>
+        /// Check to see if this seat is open (no player in this seat).
+        /// </summary>
+        /// <returns>True if the seat is open</returns>
+        public bool IsOpenSeat()
         {
-            bool blnOpenSeat;
-            Color clrPixel1, clrPixel2;
-
-            pntOpenSeatCheckPixel_1.X = 84;
-            pntOpenSeatCheckPixel_1.Y = 30 + intDyPlayerInfo;
-            pntOpenSeatCheckPixel_2.X = 85;
-            pntOpenSeatCheckPixel_2.Y = 30 + intDyPlayerInfo;
-
-            clrPixel1 = bmpScreenShot.GetPixel(pntOpenSeatCheckPixel_1.X, pntOpenSeatCheckPixel_1.Y);
-            clrPixel2 = bmpScreenShot.GetPixel(pntOpenSeatCheckPixel_2.X, pntOpenSeatCheckPixel_2.Y);
+            // Get the two pixels to check to determine if the seat is open
+            Color[] pixelColor = new Color[] {
+                screenShotBitmap.GetPixel(openSeatCheckPixel[0].X, openSeatCheckPixel[0].Y),
+                screenShotBitmap.GetPixel(openSeatCheckPixel[1].X, openSeatCheckPixel[1].Y) };
 
             // The text "Open Seat" is shown on the line between where the player's name and chip count would be
             // so if there is text in that space in between it is an open seat.
-            if ((clrPixel1.R > 120 && clrPixel1.R < 155) || (clrPixel2.R > 120 && clrPixel2.R < 155))
+            if ((pixelColor[0].R > 120 && pixelColor[0].R < 155) || (pixelColor[1].R > 120 && pixelColor[1].R < 155))
             {
-                blnOpenSeat = true;
+                return true;
             }
             else
             {
-                blnOpenSeat = false;
+                return false;
             }
-
-            return blnOpenSeat;
         }
 
-        public bool SittingOut()
+        /// <summary>
+        /// Is the player in this seat sitting out?
+        /// </summary>
+        /// <returns>True if the player in this seat is sitting out</returns>
+        public bool IsSittingOut()
         {
-            return blnPlayerSittingOut;
+            return isPlayerSittingOut;
         }
 
-        public string GetPlayerName(bool blnSaveBitmap)
+        /// <summary>
+        /// Get the name of the player in this seat.
+        /// </summary>
+        /// <param name="saveBitmap">True to save the bitmap used to determine the player's name</param>
+        /// <returns>The player's name</returns>
+        public string GetPlayerName(bool saveBitmap)
         {
-            string strName;
-            Rectangle rctCropped;
-            Bitmap bmpPlayerName;
-            var varOcr = OcrApi.Create();
+            // The rectangle containing the player's name
+            Rectangle croppedRectangle;
 
-            if (!blnAvitarPresent)
+            // Define the size and location of the rectangle containing the player's name based on whether or not there is an aviatar in 
+            // the player's information display area
+            if (!isAvatarPresent)
             {
-                rctCropped = new Rectangle(30, intDyPlayerInfo, bmpScreenShot.Width - 60, 26);
+                croppedRectangle = new Rectangle(30, DataLocations.DyPlayerNameAndChipstack, screenShotBitmap.Width - 60, 26);
             }
             else
             {
-                rctCropped = new Rectangle(70, intDyPlayerInfo, bmpScreenShot.Width - 70, 26);
+                croppedRectangle = new Rectangle(70, DataLocations.DyPlayerNameAndChipstack, screenShotBitmap.Width - 70, 26);
             }
- 
-            bmpPlayerName = bmpScreenShot.Clone(rctCropped, bmpScreenShot.PixelFormat);
+            
+            // The bitmap image containing the player's name
+            Bitmap playerNameBitmap = screenShotBitmap.Clone(croppedRectangle, screenShotBitmap.PixelFormat);
 
-            CheckIfSittingOut(bmpPlayerName);
+            CheckIfSittingOut(playerNameBitmap);
 
-            ColorSimplifyPlayerName(bmpPlayerName);
-            varOcr.Init(Patagames.Ocr.Enums.Languages.English);
-            strName = varOcr.GetTextFromImage(bmpPlayerName);
-            varOcr.Release();
+            ColorSimplifyPlayerName(playerNameBitmap);
 
-            if (blnSaveBitmap)
+            string playerName = BitmapToText(playerNameBitmap);
+
+            if (saveBitmap)
             {
-                SaveBitmapPlayer(bmpPlayerName);
+                SaveBitmapPlayer(playerNameBitmap);
             }
 
-            if (!string.IsNullOrWhiteSpace(strName))
+            if (!string.IsNullOrWhiteSpace(playerName))
             {
-                strName = strName.Substring(0, strName.IndexOf("\n"));
+                // Remove trailing newline character if present
+                playerName = playerName.Substring(0, playerName.IndexOf("\n"));
             }
 
-            return strName;
+            return playerName;
         }
 
-        public int GetChipStack(bool blnSaveBitmap)
+        /// <summary>
+        /// Get the chip stack (chip count) of the player in this seat.
+        /// </summary>
+        /// <param name="saveBitmap">True to save the bitmap used to determine the player's chip stack</param>
+        /// <returns>The player's chip stack</returns>
+        public int GetChipStack(bool saveBitmap)
         {
-            int intChipStack;
+            int chipStack;
 
-            if (!BannerPresent())
+            if (!BannerPresentCheck())
             {
-                string strChipStack;
-                Rectangle rctCropped;
-                Bitmap bmpChipStack;
-                var varOcr = OcrApi.Create();
+                Rectangle chipStackRectangle;
 
-                if (!AvitarPresent())
+                // Get the section of the bitmap image that contains the chip stack text
+                if (!AvatarPresentCheck())
                 {
-                    rctCropped = new Rectangle(30, 31 + intDyPlayerInfo, bmpScreenShot.Width - 60, 26);
+                    chipStackRectangle = new Rectangle(30, 31 + DataLocations.DyPlayerNameAndChipstack, screenShotBitmap.Width - 60, 26);
                 }
                 else
                 {
-                    rctCropped = new Rectangle(70, 31 + intDyPlayerInfo, bmpScreenShot.Width - 70, 26);
+                    chipStackRectangle = new Rectangle(70, 31 + DataLocations.DyPlayerNameAndChipstack, screenShotBitmap.Width - 70, 26);
+                }
+                
+                // create a new bitmap with just the chip stack text
+                Bitmap chipStackBitmap = screenShotBitmap.Clone(chipStackRectangle, screenShotBitmap.PixelFormat);
+
+                ColorSimplifyChipStack(chipStackBitmap);
+
+                string chipStackString = BitmapToText(chipStackBitmap);
+
+                if (saveBitmap)
+                {
+                    SaveBitmapChips(chipStackBitmap);
                 }
 
-                bmpChipStack = bmpScreenShot.Clone(rctCropped, bmpScreenShot.PixelFormat);
-
-                ColorSimplifyChipStack(bmpChipStack);
-                varOcr.Init(Patagames.Ocr.Enums.Languages.English);
-                strChipStack = varOcr.GetTextFromImage(bmpChipStack);
-                varOcr.Release();
-
-                if (blnSaveBitmap)
+                if (!string.IsNullOrWhiteSpace(chipStackString))
                 {
-                    SaveBitmapChips(bmpChipStack);
+                    // Remove trailing newline character if present
+                    chipStackString = chipStackString.Substring(0, chipStackString.IndexOf("\n"));
                 }
 
-                if (!string.IsNullOrWhiteSpace(strChipStack))
-                {
-                    strChipStack = strChipStack.Substring(0, strChipStack.IndexOf("\n"));
-                }
+                // Remove ',' and characters that might be misinterpreted as ',' from the chip stack string
+                chipStackString = chipStackString.Replace(",", "");
+                chipStackString = chipStackString.Replace(".", "");
+                chipStackString = chipStackString.Replace(" ", "");
 
-                // Remove ',' and characters that ',' might be misinterpreted as from the chip stack string
-                strChipStack = strChipStack.Replace(",", "");
-                strChipStack = strChipStack.Replace(".", "");
-                strChipStack = strChipStack.Replace(" ", "");
-
-                if (!int.TryParse(strChipStack, out intChipStack))
+                if (!int.TryParse(chipStackString, out chipStack))
                 {
-                    intChipStack = -3;
+                    int parseError = PlayerChipStackParseError;
+                    chipStack = parseError;
                 }
             }
             else
             {
-                intChipStack = -2;
+                chipStack = ChipStackValueCoverdByBanner;
             }
 
-            return intChipStack;
+            return chipStack;
         }
 
-        public int HcStatus()
+        /// <summary>
+        /// Get the hold card status (cards face down / face up / no cards) for the player in this seat.
+        /// </summary>
+        /// <returns>The status of the player's two hold cards</returns>
+        public HoldCardState.PairOfHoldCards HcState()
         {
-            int intHcStatus, intHc1Status, intHc2Status;
-            Color clrPixel1, clrPixel2, clrPixel3, clrPixel4;
+            // The status of each of the two individual hold cards
+            HoldCardState.SingleHoldCard hc1State, hc2State;
 
-            // intHcStatus (hold card status) == 
-            // -1 no hold card (no cards folded or not playing)
-            // 0 both hold cards face down (the hand has not been shown)
-            // 1 both hold cards shown
-            // 2 only first hold card shown
-            // 3 only second hold card shown
+            // Prepare the pixels to be checked to determine the hold card status for the first hold card
+            firstHcStatusPixel[0].X = DataLocations.HcStatusDx1;
+            firstHcStatusPixel[0].Y = DataLocations.HcStatusDy1;
+            firstHcStatusPixel[1].X = DataLocations.HcStatusDx1 + 1;
+            firstHcStatusPixel[1].Y = DataLocations.HcStatusDy1;
+            firstHcStatusPixel[2].X = DataLocations.HcStatusDx2;
+            firstHcStatusPixel[2].Y = DataLocations.HcStatusDy2;
+            firstHcStatusPixel[3].X = DataLocations.HcStatusDx2;
+            firstHcStatusPixel[3].Y = DataLocations.HcStatusDy2 + 9;
 
-            // if intHc1Status(hold card #1 status) or intHc2Status(hold card #2 status) == 
-            // -1 no hold card
-            // 0 hold card face down
-            // 1 hold card shown
+            // Two pixels to check for the white of the facedown card edge
+            Color[] pixelColorFaceDown = new Color[] {
+                screenShotBitmap.GetPixel(firstHcStatusPixel[0].X, firstHcStatusPixel[0].Y),
+                screenShotBitmap.GetPixel(firstHcStatusPixel[1].X, firstHcStatusPixel[1].Y) };
 
-            // Firts hold card
-            pntFirstHoldCardPresent_1.X = intHcStatusDx1;
-            pntFirstHoldCardPresent_1.Y = intHcStatusDy1;
-            pntFirstHoldCardPresent_2.X = intHcStatusDx1 + 1;
-            pntFirstHoldCardPresent_2.Y = intHcStatusDy1;
-            pntFirstHoldCardPresent_3.X = intHcStatusDx2;
-            pntFirstHoldCardPresent_3.Y = intHcStatusDy2;
-            pntFirstHoldCardPresent_4.X = intHcStatusDx2;
-            pntFirstHoldCardPresent_4.Y = intHcStatusDy2 + 9;
-
-            clrPixel1 = bmpScreenShot.GetPixel(pntFirstHoldCardPresent_1.X, pntFirstHoldCardPresent_1.Y);
-            clrPixel2 = bmpScreenShot.GetPixel(pntFirstHoldCardPresent_2.X, pntFirstHoldCardPresent_2.Y);
-            clrPixel3 = bmpScreenShot.GetPixel(pntFirstHoldCardPresent_3.X, pntFirstHoldCardPresent_3.Y);
-            clrPixel4 = bmpScreenShot.GetPixel(pntFirstHoldCardPresent_4.X, pntFirstHoldCardPresent_4.Y);
+            // Two pixels to check for the white of the card suit symbol
+            Color[] pixelColorSuit = new Color[] {
+                screenShotBitmap.GetPixel(firstHcStatusPixel[2].X, firstHcStatusPixel[2].Y),
+                screenShotBitmap.GetPixel(firstHcStatusPixel[3].X, firstHcStatusPixel[3].Y) };
 
             // Check for the white of the facedown card edge to check for hold card present but not shown
-            if ((clrPixel1.R > 220 && clrPixel1.G > 220 && clrPixel1.B > 220) || (clrPixel2.R > 220 && clrPixel2.G > 220 && clrPixel2.B > 220))
+            if ((pixelColorFaceDown[0].R > 220 && pixelColorFaceDown[0].G > 220 && pixelColorFaceDown[0].B > 220) || 
+                (pixelColorFaceDown[1].R > 220 && pixelColorFaceDown[1].G > 220 && pixelColorFaceDown[1].B > 220))
             {
-                intHc1Status = 0;
+                hc1State = HoldCardState.SingleHoldCard.CardFaceDown;
             }
             // Check for the white of the card suit symbol (clubs, diamonds, hearts, spades) to check if the card is face up and being shown
-            else if ((clrPixel3.R > 220 && clrPixel3.G > 220 && clrPixel3.B > 220) || (clrPixel4.R > 220 && clrPixel4.G > 220 && clrPixel4.B > 220))
+            else if ((pixelColorSuit[0].R > 220 && pixelColorSuit[0].G > 220 && pixelColorSuit[0].B > 220) || 
+                (pixelColorSuit[1].R > 220 && pixelColorSuit[1].G > 220 && pixelColorSuit[1].B > 220))
             {
-                intHc1Status = 1;
+                hc1State = HoldCardState.SingleHoldCard.CardShown;
             }
             else
             {
-                intHc1Status = -1;
+                hc1State = HoldCardState.SingleHoldCard.NoCard;
             }
 
             // Second hold card
-            pntSecondHoldCardPresent_1.X = pntFirstHoldCardPresent_1.X + intHc2Dx - intHc1Dx - 7;
-            pntSecondHoldCardPresent_1.Y = pntFirstHoldCardPresent_1.Y;
-            pntSecondHoldCardPresent_2.X = pntFirstHoldCardPresent_2.X + intHc2Dx - intHc1Dx - 7;
-            pntSecondHoldCardPresent_2.Y = pntFirstHoldCardPresent_2.Y;
-            pntSecondHoldCardPresent_3.X = pntFirstHoldCardPresent_3.X + intHc2Dx - intHc1Dx;
-            pntSecondHoldCardPresent_3.Y = pntFirstHoldCardPresent_3.Y;
-            pntSecondHoldCardPresent_4.X = pntFirstHoldCardPresent_4.X + intHc2Dx - intHc1Dx;
-            pntSecondHoldCardPresent_4.Y = pntFirstHoldCardPresent_4.Y;
+            // Prepare the pixels to be checked to determine the hold card status for the second hold card
+            secondHcStatusPixel[0].X = firstHcStatusPixel[0].X + DataLocations.Hc2Dx - DataLocations.Hc1Dx - 7;
+            secondHcStatusPixel[0].Y = firstHcStatusPixel[0].Y;
+            secondHcStatusPixel[1].X = firstHcStatusPixel[1].X + DataLocations.Hc2Dx - DataLocations.Hc1Dx - 7;
+            secondHcStatusPixel[1].Y = firstHcStatusPixel[1].Y;
+            secondHcStatusPixel[2].X = firstHcStatusPixel[2].X + DataLocations.Hc2Dx - DataLocations.Hc1Dx;
+            secondHcStatusPixel[2].Y = firstHcStatusPixel[2].Y;
+            secondHcStatusPixel[3].X = firstHcStatusPixel[3].X + DataLocations.Hc2Dx - DataLocations.Hc1Dx;
+            secondHcStatusPixel[3].Y = firstHcStatusPixel[3].Y;
 
-            clrPixel1 = bmpScreenShot.GetPixel(pntSecondHoldCardPresent_1.X, pntSecondHoldCardPresent_1.Y);
-            clrPixel2 = bmpScreenShot.GetPixel(pntSecondHoldCardPresent_2.X, pntSecondHoldCardPresent_2.Y);
-            clrPixel3 = bmpScreenShot.GetPixel(pntSecondHoldCardPresent_3.X, pntSecondHoldCardPresent_3.Y);
-            clrPixel4 = bmpScreenShot.GetPixel(pntSecondHoldCardPresent_4.X, pntSecondHoldCardPresent_4.Y);
+            // Two pixels to check for the white of the facedown card edge
+            pixelColorFaceDown[0] = screenShotBitmap.GetPixel(secondHcStatusPixel[0].X, secondHcStatusPixel[0].Y);
+            pixelColorFaceDown[1] = screenShotBitmap.GetPixel(secondHcStatusPixel[1].X, secondHcStatusPixel[1].Y);
+
+            // Two pixels to check for the white of the card suit symbol
+            pixelColorSuit[0] = screenShotBitmap.GetPixel(secondHcStatusPixel[2].X, secondHcStatusPixel[2].Y);
+            pixelColorSuit[1] = screenShotBitmap.GetPixel(secondHcStatusPixel[3].X, secondHcStatusPixel[3].Y);
 
             // Check for the white edge of a facedown card to check for hold card present but not shown
-            if ((clrPixel1.R > 220 && clrPixel1.G > 220 && clrPixel1.B > 220) || (clrPixel2.R > 220 && clrPixel2.G > 220 && clrPixel2.B > 220))
+            if ((pixelColorFaceDown[0].R > 220 && pixelColorFaceDown[0].G > 220 && pixelColorFaceDown[0].B > 220) || 
+                (pixelColorFaceDown[1].R > 220 && pixelColorFaceDown[1].G > 220 && pixelColorFaceDown[1].B > 220))
             {
-                intHc2Status = 0;
+                hc2State = HoldCardState.SingleHoldCard.CardFaceDown;
             }
             // Check for the white of the card suit symbol (clubs, diamonds, hearts, spades) to check if the card is face up and being shown
-            else if ((clrPixel3.R > 220 && clrPixel3.G > 220 && clrPixel3.B > 220) || (clrPixel4.R > 220 && clrPixel4.G > 220 && clrPixel4.B > 220))
+            else if ((pixelColorSuit[0].R > 220 && pixelColorSuit[0].G > 220 && pixelColorSuit[0].B > 220) || 
+                (pixelColorSuit[1].R > 220 && pixelColorSuit[1].G > 220 && pixelColorSuit[1].B > 220))
             {
-                intHc2Status = 1;
+                hc2State = HoldCardState.SingleHoldCard.CardShown;
             }
             else
             {
-                intHc2Status = -1;
+                hc2State = HoldCardState.SingleHoldCard.NoCard;
             }
 
-            if (intHc1Status == 1 && intHc2Status == 1)
+            // The status of the pair of two hold cards
+            HoldCardState.PairOfHoldCards hcPairState;
+
+            if (hc1State == HoldCardState.SingleHoldCard.CardShown && hc2State == HoldCardState.SingleHoldCard.CardShown)
             {
-                intHcStatus = 1;
+                hcPairState = HoldCardState.PairOfHoldCards.BothCardsShown;
             }
-            else if (intHc1Status == 1 && intHc2Status == 0)
+            else if (hc1State == HoldCardState.SingleHoldCard.CardShown && hc2State == HoldCardState.SingleHoldCard.CardFaceDown)
             {
-                intHcStatus = 2;
+                hcPairState = HoldCardState.PairOfHoldCards.OnlyCard1Shown;
             }
-            else if (intHc1Status == 0 && intHc2Status == 1)
+            else if (hc1State == HoldCardState.SingleHoldCard.CardFaceDown && hc2State == HoldCardState.SingleHoldCard.CardShown)
             {
-                intHcStatus = 3;
+                hcPairState = HoldCardState.PairOfHoldCards.OnlyCard2Shown;
             }
-            else if (intHc1Status == 0 && intHc2Status == 0)
+            else if (hc1State == HoldCardState.SingleHoldCard.CardFaceDown && hc2State == HoldCardState.SingleHoldCard.CardFaceDown)
             {
-                intHcStatus = 0;
+                hcPairState = HoldCardState.PairOfHoldCards.BothCardsFaceDown;
             }
             else
             {
-                intHcStatus = -1;
+                hcPairState = HoldCardState.PairOfHoldCards.NoCards;
             }
 
-            return intHcStatus;
+            return hcPairState;
         }
 
-        public int FindHc(bool blnHc1, bool blnSaveHcBmp)
+        /// <summary>
+        /// Find the value of a player's hold card.
+        /// </summary>
+        /// <param name="isHc1">True if this is the player's first hold card, false if it is the second</param>
+        /// <param name="saveHcBmp">True to save the bitmap used to determine the player's hold card</param>
+        /// <returns>The integer representation of the hold card</returns>
+        public int FindHc(bool isHc1, bool saveHcBmp)
         {
-            // Following GetBoardCard Pattern/Logic
-            int intHc, intHcSuit;
-            Color clrPix1, clrPix2, clrPix3;
+            // Prepare the pixels to be checked to determine the suit of the first hold card
+            hc1SuitCheckPixel[0].X = DataLocations.Hc1Dx + DataLocations.CardWidth - 3;
+            hc1SuitCheckPixel[0].Y = DataLocations.HcDy;
+            hc1SuitCheckPixel[1].X = DataLocations.Hc1Dx + DataLocations.CardWidth - 2;
+            hc1SuitCheckPixel[1].Y = DataLocations.HcDy;
+            hc1SuitCheckPixel[2].X = DataLocations.Hc1Dx + DataLocations.CardWidth - 1;
+            hc1SuitCheckPixel[2].Y = DataLocations.HcDy;
 
-            intHc = -1;
+            // Prepare the pixels to be checked to determine the suit of the second hold card
+            hc2SuitCheckPixel[0].X = DataLocations.Hc2Dx + DataLocations.CardWidth - 3;
+            hc2SuitCheckPixel[0].Y = hc1SuitCheckPixel[0].Y;
+            hc2SuitCheckPixel[1].X = DataLocations.Hc2Dx + DataLocations.CardWidth - 2;
+            hc2SuitCheckPixel[1].Y = hc1SuitCheckPixel[1].Y;
+            hc2SuitCheckPixel[2].X = DataLocations.Hc2Dx + DataLocations.CardWidth - 1;
+            hc2SuitCheckPixel[2].Y = hc1SuitCheckPixel[2].Y;
 
-            pntHc1SuitCheck_1.X = intHc1Dx + intCardDx - 3;
-            pntHc1SuitCheck_1.Y = intHcDy;
-            pntHc1SuitCheck_2.X = intHc1Dx + intCardDx - 2;
-            pntHc1SuitCheck_2.Y = intHcDy;
-            pntHc1SuitCheck_3.X = intHc1Dx + intCardDx - 1;
-            pntHc1SuitCheck_3.Y = intHcDy;
+            // The color of the three pixels used to determine the suit of the hold card
+            Color[] pixelColorSuit;
 
-            pntHc2SuitCheck_1.X = intHc2Dx + intCardDx - 3;
-            pntHc2SuitCheck_1.Y = pntHc1SuitCheck_1.Y;
-            pntHc2SuitCheck_2.X = intHc2Dx + intCardDx - 2;
-            pntHc2SuitCheck_2.Y = pntHc1SuitCheck_2.Y;
-            pntHc2SuitCheck_3.X = intHc2Dx + intCardDx - 1;
-            pntHc2SuitCheck_3.Y = pntHc1SuitCheck_3.Y;
-
-            if (blnHc1)
+            // Hold card 1 is the card the user wishes to find the value of
+            if (isHc1)
             {
-                clrPix1 = bmpScreenShot.GetPixel(pntHc1SuitCheck_1.X, pntHc1SuitCheck_1.Y);
-                clrPix2 = bmpScreenShot.GetPixel(pntHc1SuitCheck_2.X, pntHc1SuitCheck_2.Y);
-                clrPix3 = bmpScreenShot.GetPixel(pntHc1SuitCheck_3.X, pntHc1SuitCheck_3.Y);
+                // Three pixels to check to determine the suit of the card
+                pixelColorSuit = new Color[] {
+                    screenShotBitmap.GetPixel(hc1SuitCheckPixel[0].X, hc1SuitCheckPixel[0].Y),
+                    screenShotBitmap.GetPixel(hc1SuitCheckPixel[1].X, hc1SuitCheckPixel[1].Y),
+                    screenShotBitmap.GetPixel(hc1SuitCheckPixel[2].X, hc1SuitCheckPixel[2].Y) };
             }
+            // Hold card 2 is the card the user wishes to find the value of
             else
             {
-                clrPix1 = bmpScreenShot.GetPixel(pntHc2SuitCheck_1.X, pntHc2SuitCheck_1.Y);
-                clrPix2 = bmpScreenShot.GetPixel(pntHc2SuitCheck_2.X, pntHc2SuitCheck_2.Y);
-                clrPix3 = bmpScreenShot.GetPixel(pntHc2SuitCheck_3.X, pntHc2SuitCheck_3.Y);
+                // Three pixels to check to determine the suit of the card
+                pixelColorSuit = new Color[] {
+                    screenShotBitmap.GetPixel(hc2SuitCheckPixel[0].X, hc2SuitCheckPixel[0].Y),
+                    screenShotBitmap.GetPixel(hc2SuitCheckPixel[1].X, hc2SuitCheckPixel[1].Y),
+                    screenShotBitmap.GetPixel(hc2SuitCheckPixel[2].X, hc2SuitCheckPixel[2].Y) };
             }
 
-            intHcSuit = GetCardSuit(clrPix1, clrPix2, clrPix3);
+            // The suit of the hold card
+            CardTranslator.CardSuit hcSuit = GetCardSuit(pixelColorSuit[0], pixelColorSuit[1], pixelColorSuit[2]);
+
+            // The integer representation of the hold card
+            int hcIntRepresentation = CardTranslator.NoCardPresent;
 
             // Check to make sure a card is present
-            if (intHcSuit > 0)
+            if (hcSuit != CardTranslator.CardSuit.unknown)
             {
-                string strHc, strHcNumber;
-                var varOcr = OcrApi.Create();
-                Bitmap bmpHc;                
+                // The bitmap containing an image of the hold card
+                Bitmap hcBitmap;
 
-                if (blnHc1)
+                // A description of the hold card (either Hc#1 or Hc#2)
+                string hcDescription;
+
+                if (isHc1)
                 {
-                    bmpHc = bmpScreenShot.Clone(new Rectangle(intHc1Dx, intHcDy, intCardDx, intCardDy), bmpScreenShot.PixelFormat);
-                    strHcNumber = "Hc#1";
+                    hcBitmap = screenShotBitmap.Clone(new Rectangle(DataLocations.Hc1Dx, DataLocations.HcDy, DataLocations.CardWidth, DataLocations.CardHeight), screenShotBitmap.PixelFormat);
+                    hcDescription = "Hc#1";
                 }
                 else
                 {
-                    bmpHc = bmpScreenShot.Clone(new Rectangle(intHc2Dx, intHcDy, intCardDx, intCardDy), bmpScreenShot.PixelFormat);
-                    strHcNumber = "Hc#2";
+                    hcBitmap = screenShotBitmap.Clone(new Rectangle(DataLocations.Hc2Dx, DataLocations.HcDy, DataLocations.CardWidth, DataLocations.CardHeight), screenShotBitmap.PixelFormat);
+                    hcDescription = "Hc#2";
                 }
 
-                // In the most recent update of Bet Online they don't highlight the winning combination of cards by raising them like they used
-                // to so we never need to change the rectangle we send to the "get text from image" tool which is why i have commented out the 
-                // code below. 2020.04.04
-                /*
-                Rectangle rctCropped;
-                
-                if (CardRaisedHc(blnHc1))
-                {
-                    rctCropped = new Rectangle(0, 0, bmpHc.Width, bmpHc.Height - 12);
-                }
-                else
-                {
-                    rctCropped = new Rectangle(0, 12, bmpHc.Width, bmpHc.Height - 12);
-                }
-                */
+                string hcValue = GetCardValue(hcBitmap);
 
-                bmpHc = bmpHc.Clone(new Rectangle(0, 0, bmpHc.Width, bmpHc.Height), bmpHc.PixelFormat);
-                ColorSimplifyCard(bmpHc);
+                // Get the integer representation of the hold card
+                hcIntRepresentation = CardTranslator.CardSuitAndStringToInt(hcSuit, hcValue);
 
-                varOcr.Init(Patagames.Ocr.Enums.Languages.English);
-                strHc = varOcr.GetTextFromImage(bmpHc);
-                varOcr.Release();
-
-                if (!string.IsNullOrWhiteSpace(strHc))
+                if (saveHcBmp)
                 {
-                    strHc = strHc.Substring(0, strHc.IndexOf("\n"));
-                }
-
-                if (strHc == "E" || strHc == "B" || strHc == "b")
-                {
-                    strHc = "6";
-                }
-                else if (strHc == "l]" || strHc == "[l")
-                {
-                    strHc = "Q";
-                }
-
-                intHc = CardSuitAndStringToInt(intHcSuit, strHc);
-
-                if (blnSaveHcBmp)
-                {
-                    SaveBitmapHc(bmpHc, strHcNumber);
+                    SaveBitmapHc(hcBitmap, hcDescription);
                 }
             }
 
-            return intHc;
+            return hcIntRepresentation;
         }
 
+        /// <summary>
+        /// Find the value of a board card (flop, turn, river).
+        /// </summary>
+        /// <returns>The integer representation of the board card</returns>
         public int GetBoardCard()
         {
-            int intBoardCard, intBoardCardSuit;
-            Color clrPix1, clrPix2, clrPix3;
+            // Prepare the pixels to be checked to determine the suit of the board card
+            boardCardSuitCheckPixel[0].X = DataLocations.CardWidth - 3;
+            boardCardSuitCheckPixel[0].Y = 0;
+            boardCardSuitCheckPixel[1].X = DataLocations.CardWidth - 2;
+            boardCardSuitCheckPixel[1].Y = 0;
+            boardCardSuitCheckPixel[2].X = DataLocations.CardWidth - 1;
+            boardCardSuitCheckPixel[2].Y = 0;
 
-            intBoardCard = -1;
+            // Three pixels to check to determine the suit of the board card
+            Color[] pixelColorSuit = new Color[] {
+                screenShotBitmap.GetPixel(boardCardSuitCheckPixel[0].X, boardCardSuitCheckPixel[0].Y),
+                screenShotBitmap.GetPixel(boardCardSuitCheckPixel[1].X, boardCardSuitCheckPixel[1].Y),
+                screenShotBitmap.GetPixel(boardCardSuitCheckPixel[2].X, boardCardSuitCheckPixel[2].Y) };
 
-            pntBoardCardSuitCheck_1.X = intCardDx - 3;
-            pntBoardCardSuitCheck_1.Y = 0;
-            pntBoardCardSuitCheck_2.X = intCardDx - 2;
-            pntBoardCardSuitCheck_2.Y = 0;
-            pntBoardCardSuitCheck_3.X = intCardDx - 1;
-            pntBoardCardSuitCheck_3.Y = 0;
+            // Get the suit of the board card
+            CardTranslator.CardSuit boardCardSuit = GetCardSuit(pixelColorSuit[0], pixelColorSuit[1], pixelColorSuit[2]);
 
-            clrPix1 = bmpScreenShot.GetPixel(pntBoardCardSuitCheck_1.X, pntBoardCardSuitCheck_1.Y);
-            clrPix2 = bmpScreenShot.GetPixel(pntBoardCardSuitCheck_2.X, pntBoardCardSuitCheck_2.Y);
-            clrPix3 = bmpScreenShot.GetPixel(pntBoardCardSuitCheck_3.X, pntBoardCardSuitCheck_3.Y);
-
-            intBoardCardSuit = GetCardSuit(clrPix1, clrPix2, clrPix3);
+            // The integer representation of the board card
+            int boardCardIntRepresentation = CardTranslator.NoCardPresent;
 
             // Check to make sure a card is present
-            if (intBoardCardSuit > 0)
+            if (boardCardSuit != CardTranslator.CardSuit.unknown)
             {
-                string strBoardCard;
-                var varOcr = OcrApi.Create();
+                string boardCardValue = GetCardValue(screenShotBitmap);
 
-                // In the most recent update of Bet Online they don't highlight the winning combination of cards by raising them like they used
-                // to so we never need to change the rectangle we send to the "get text from image" tool which is why i have commented out the 
-                // code below. 2020.04.04
-                /*
-                Rectangle rctCropped;
-
-                if (CardRaised(bmpScreenShot))
-                {
-                    rctCropped = new Rectangle(0, 0, bmpScreenShot.Width, bmpScreenShot.Height - 12);
-                }
-                else
-                {
-                    rctCropped = new Rectangle(0, 12, bmpScreenShot.Width, bmpScreenShot.Height - 12);
-                }
-                bmpScreenShot = bmpScreenShot.Clone(rctCropped, bmpScreenShot.PixelFormat);
-                */
-
-                bmpScreenShot = bmpScreenShot.Clone(new Rectangle(0, 0, bmpScreenShot.Width, bmpScreenShot.Height), bmpScreenShot.PixelFormat);
-                ColorSimplifyCard(bmpScreenShot);
-
-                varOcr.Init(Patagames.Ocr.Enums.Languages.English);
-                strBoardCard = varOcr.GetTextFromImage(bmpScreenShot);
-                varOcr.Release();
-
-                if (!string.IsNullOrWhiteSpace(strBoardCard))
-                {
-                    strBoardCard = strBoardCard.Substring(0, strBoardCard.IndexOf("\n"));
-                }
-
-                if (strBoardCard == "E")
-                {
-                    strBoardCard = "6";
-                }
-                else if (strBoardCard == "B")
-                {
-                    strBoardCard = "6";
-                }
-                else if (strBoardCard == "l]")
-                {
-                    strBoardCard = "Q";
-                }
-                else if (strBoardCard == "[l")
-                {
-                    strBoardCard = "Q";
-                }
-
-                intBoardCard = CardSuitAndStringToInt(intBoardCardSuit, strBoardCard);
+                boardCardIntRepresentation = CardTranslator.CardSuitAndStringToInt(boardCardSuit, boardCardValue);
             }
 
-            return intBoardCard;
+            return boardCardIntRepresentation;
         }
 
+        /// <summary>
+        /// Get the value of the pot (how many chips are in the pot).
+        /// </summary>
+        /// <returns>How many chips are in the pot</returns>
         public int GetPot()
         {
-            int intPot;
-            string strPot;
-            var varOcr = OcrApi.Create();
-
             ColorSimplifyPot();
 
-            varOcr.Init(Patagames.Ocr.Enums.Languages.English);
-            strPot = varOcr.GetTextFromImage(bmpScreenShot);
-            varOcr.Release();
+            string potString = BitmapToText(screenShotBitmap);
 
             // Remove "Pot: " and any commas from the string as well as any misread characters
-            strPot = strPot.Replace("\n", "");
-            strPot = strPot.Replace("Pot: ", "");
-            strPot = strPot.Replace(",", "");
-            strPot = strPot.Replace(".", "");
-            strPot = strPot.Replace("D", "0");
-            strPot = strPot.Replace("Z", "2");
-            strPot = strPot.Replace("o", "0");
-            strPot = strPot.Replace("O", "0");
+            potString = potString.Replace("\n", "");
+            potString = potString.Replace("Pot: ", "");
+            potString = potString.Replace(",", "");
+            potString = potString.Replace(".", "");
+            potString = potString.Replace("D", "0");
+            potString = potString.Replace("Z", "2");
+            potString = potString.Replace("o", "0");
+            potString = potString.Replace("O", "0");
 
-            if (!int.TryParse(strPot, out intPot))
+            int pot;
+
+            if (!int.TryParse(potString, out pot))
             {
-                if (strPot == "")
+                if (potString == "")
                 {
-                    intPot = -2;
+                    pot = NoPotParsingError;
                 }
                 else
                 {
-                    intPot = -1;
+                    int parseError = -1;
+                    pot = parseError;
                 }
             }
 
-            return intPot;
+            return pot;
         }
 
+        /// <summary>
+        /// Find the player (seat number) of the current dealer.
+        /// </summary>
+        /// <returns>The seat number of the dealer</returns>
         public int FindDealer()
         {
-            bool blnDealerFound;
-            int intCount, intDealer, intX, intY;
-            Color clrPixel;
+            // Has the dealer been found
+            bool dealerFound = false;
 
-            blnDealerFound = false;
-            intCount = 0;
-            intDealer = -1;
+            // The seat number being checked (iterator)
+            int seatNum = 0;
 
-            while (!blnDealerFound && intCount < 10)
+            // The seat number of the dealer
+            int dealerSeat = -1;
+
+            // Check each seat until the dealer is found
+            while (!dealerFound && seatNum < 10)
             {
-                intX = intLocations[intCount][3, 2] - intLocations[16][0, 0];
-                intY = intLocations[intCount][3, 3] - intLocations[16][0, 1];
+                // Set the location where the dealer chip would be found for this seat
+                int pixelX = DataLocations.Locations[seatNum][3, 2] - DataLocations.Locations[16][0, 0];
+                int pixelY = DataLocations.Locations[seatNum][3, 3] - DataLocations.Locations[16][0, 1];
 
-                // Get color
-                clrPixel = bmpScreenShot.GetPixel(intX, intY);
+                // Get the color of the pixel location where the dealer chip would be
+                Color pixelColor = screenShotBitmap.GetPixel(pixelX, pixelY);
 
-                if (clrPixel.R > 180)
+                // Is the dealer chip present
+                if (pixelColor.R > 180)
                 {
-                    intDealer = intCount;
-
-                    blnDealerFound = true;
+                    dealerSeat = seatNum;
+                    dealerFound = true;
                 }
 
-                intCount++;
+                seatNum++;
             }
 
-            return intDealer;
+            return dealerSeat;
         }
 
-        public bool DealerHasHoldCards(int intDealer)
+        /// <summary>
+        /// Check to see if the dealer has hold cards.
+        /// </summary>
+        /// <param name="dealerSeat">The seat the dealer is sitting in</param>
+        /// <returns>True if the dealer has hold cards</returns>
+        public bool DealerHasHoldCards(int dealerSeat)
         {
-            bool blnDealHasHoldCards = false;
-            Color clrPixel1, clrPixel2, clrPixel3, clrPixel4;
+            // Pixels to check to determine if the dealer has hold cards (either face down or face up).
+            // Check for the first hold card only (no need to check for a second hold card, if the first hold card is present the dealer has cards)
+            Color[] pixelColor = new Color[] {
+            screenShotBitmap.GetPixel(
+                BitmapRect(dealerSeat, 0).Left + DataLocations.HcStatusDx1 - DataLocations.Locations[16][0, 0],
+                BitmapRect(dealerSeat, 0).Top + DataLocations.HcStatusDy1 - DataLocations.Locations[16][0, 1]),
+            screenShotBitmap.GetPixel(
+                BitmapRect(dealerSeat, 0).Left + DataLocations.HcStatusDx1 + 1 - DataLocations.Locations[16][0, 0],
+                BitmapRect(dealerSeat, 0).Top + DataLocations.HcStatusDy1 - DataLocations.Locations[16][0, 1]),
+            screenShotBitmap.GetPixel(
+                BitmapRect(dealerSeat, 0).Left + DataLocations.HcStatusDx1 - 1 - DataLocations.Locations[16][0, 0],
+                BitmapRect(dealerSeat, 0).Top + DataLocations.HcStatusDy2 - DataLocations.Locations[16][0, 1]),
+            screenShotBitmap.GetPixel(
+                BitmapRect(dealerSeat, 0).Left + DataLocations.HcStatusDx1 - DataLocations.Locations[16][0, 0],
+                BitmapRect(dealerSeat, 0).Top + DataLocations.HcStatusDy2 - DataLocations.Locations[16][0, 1]) };
 
-            // Firts hold card (no need to check for a second hold card, if the first hold card is present the dealer has cards)
-            clrPixel1 = bmpScreenShot.GetPixel(BitmapRect(intDealer, 0).Left + intHcStatusDx1 - intLocations[16][0, 0], BitmapRect(intDealer, 0).Top + intHcStatusDy1 - intLocations[16][0, 1]);
-            clrPixel2 = bmpScreenShot.GetPixel(BitmapRect(intDealer, 0).Left + intHcStatusDx1 + 1 - intLocations[16][0, 0], BitmapRect(intDealer, 0).Top + intHcStatusDy1 - intLocations[16][0, 1]);
-            clrPixel3 = bmpScreenShot.GetPixel(BitmapRect(intDealer, 0).Left + intHcStatusDx1 - 1 - intLocations[16][0, 0], BitmapRect(intDealer, 0).Top + intHcStatusDy2 - intLocations[16][0, 1]);
-            clrPixel4 = bmpScreenShot.GetPixel(BitmapRect(intDealer, 0).Left + intHcStatusDx1 - intLocations[16][0, 0], BitmapRect(intDealer, 0).Top + intHcStatusDy2 - intLocations[16][0, 1]);
+            // Does the dealer have hold cards
+            bool dealHasHoldCards = false;
 
             // Check for the white of the facedown card edge to check for hold card present but not shown
-            if ((clrPixel1.R > 220 && clrPixel1.G > 220 && clrPixel1.B > 220) || (clrPixel2.R > 220 && clrPixel2.G > 220 && clrPixel2.B > 220))
+            if ((pixelColor[0].R > 220 && pixelColor[0].G > 220 && pixelColor[0].B > 220) || 
+                (pixelColor[1].R > 220 && pixelColor[1].G > 220 && pixelColor[1].B > 220))
             {
-                blnDealHasHoldCards = true;
-            }
-            // Check for corner white area or brighness of a card that is present and shown
-            else if (clrPixel3.R > 100 || clrPixel4.R > 100 || clrPixel3.B > 100 || clrPixel4.B > 100 || (clrPixel3.R > 3 && clrPixel3.G > 100) || (clrPixel4.R > 3 && clrPixel4.G > 100))
-            {
-                blnDealHasHoldCards = true;
+                dealHasHoldCards = true;
             }
 
-            return blnDealHasHoldCards;
+            // Check for corner white area or brighness of a card that is present and shown
+            else if (pixelColor[2].R > 100 || pixelColor[3].R > 100 || pixelColor[2].B > 100 || pixelColor[3].B > 100 || 
+                (pixelColor[2].R > 3 && pixelColor[2].G > 100) || (pixelColor[3].R > 3 && pixelColor[3].G > 100))
+            {
+                dealHasHoldCards = true;
+            }
+
+            return dealHasHoldCards;
         }
 
+        /// <summary>
+        /// Find the player (seat number) of the action player (the player whose turn it is to act).
+        /// </summary>
+        /// <returns>The seat number of the action player</returns>
         public int FindActionPlayer()
         {
-            bool blnActionPlayerFound;
-            int intCount, intActionPlayer, intX, intY;
-            Color clrPixel;
+            // Has the action player been found
+            bool actionPlayerFound = false;
 
-            blnActionPlayerFound = false;
-            intCount = 0;
-            intActionPlayer = -1;
+            // The seat number being checked (iterator)
+            int seatNum = 0;
 
-            while (!blnActionPlayerFound && intCount < 10)
+            // The seat number of the action player
+            int actionPlayerSeat = -1;
+
+            // Check each seat until the action player is found
+            while (!actionPlayerFound && seatNum < 10)
             {
-                intX = intLocations[intCount][3, 0] - intLocations[16][0, 0];
-                intY = intLocations[intCount][3, 1] - intLocations[16][0, 1];
+                // Set the location where the player's action bar would be found for this seat
+                int pixelX = DataLocations.Locations[seatNum][3, 0] - DataLocations.Locations[16][0, 0];
+                int pixelY = DataLocations.Locations[seatNum][3, 1] - DataLocations.Locations[16][0, 1];
 
-                // Get color
-                clrPixel = bmpScreenShot.GetPixel(intX, intY);
+                // Get color of the pixel location where the player's action bar would be
+                Color pixelColor = screenShotBitmap.GetPixel(pixelX, pixelY);
 
-                if (clrPixel.R > 150)
+                // Is the player's action bar present
+                if (pixelColor.R > 150)
                 {
-                    intActionPlayer = intCount;
+                    actionPlayerSeat = seatNum;
 
-                    blnActionPlayerFound = true;
+                    actionPlayerFound = true;
                 }
 
-                intCount++;
+                seatNum++;
             }
 
-            return intActionPlayer;
+            return actionPlayerSeat;
         }
 
-        public void NewScreenShot(Bitmap bmpNewSs)
+        /// <summary>
+        /// Provide a new screenshot for this object to use.
+        /// </summary>
+        /// <param name="NewScreenShotBitmap">The new screenshot that this object will use</param>
+        public void NewScreenShot(Bitmap NewScreenShotBitmap)
         {
-            if (blnDisposeScreenShotResources)
+            if (disposeScreenShotResources)
             {
-                bmpScreenShot.Dispose();
-                gfxScreenShot.Dispose();
+                screenShotBitmap.Dispose();
+                screenShotGraphics.Dispose();
             }
 
-            bmpScreenShot = bmpNewSs;
-            gfxScreenShot = Graphics.FromImage(bmpScreenShot);
+            screenShotBitmap = NewScreenShotBitmap;
+            screenShotGraphics = Graphics.FromImage(screenShotBitmap);
 
-            blnDisposeScreenShotResources = true;
+            disposeScreenShotResources = true;
         }
 
+        /// <summary>
+        /// Get the sceenshot that this object is using.
+        /// </summary>
+        /// <returns>The screenshot this object is using</returns>
         public Bitmap ShareScreenShot()
         {
-            return bmpScreenShot;
+            return screenShotBitmap;
         }
 
-        public void ChangeBitmapSaveLocation(string strNewSaveLocation)
+        /// <summary>
+        /// Change the location where bitmaps this object uses for processing will be saved (if the user chooses to save bitmap images).
+        /// </summary>
+        /// <param name="newSaveLocation">The new location where bitmaps this object uses for processing will be saved</param>
+        public void ChangeBitmapSaveLocation(string newSaveLocation)
         {
-            strBmpSaveLocation = strNewSaveLocation;
+            bmpSaveLocation = newSaveLocation;
         }
 
+        /// <summary>
+        /// Save the bitmap sceenshot that this object is using.
+        /// </summary>
         public void SaveBitmap()
         {
-            bmpScreenShot.Save(strBmpSaveLocation + "\\" + DateTime.Now.ToString("yyyy.MM.dd_") + intIdentifier.ToString("D2") + 
+            screenShotBitmap.Save(bmpSaveLocation + "\\" + DateTime.Now.ToString("yyyy.MM.dd_") + id.ToString("D2") + 
                 ".bmp", System.Drawing.Imaging.ImageFormat.Bmp);
         }
 
+        /// <summary>
+        /// Save the player name bitmap file.
+        /// </summary>
+        /// <param name="bmp">The bitmap file to be saved</param>
         public void SaveBitmapPlayer(Bitmap bmp)
         {
-            bmp.Save(strBmpSaveLocation + "\\" + DateTime.Now.ToString("yyyy.MM.dd_") + intIdentifier.ToString("D2") + " Player Name" + 
+            bmp.Save(bmpSaveLocation + "\\" + DateTime.Now.ToString("yyyy.MM.dd_") + id.ToString("D2") + " Player Name" + 
                 ".bmp", System.Drawing.Imaging.ImageFormat.Bmp);
         }
 
+        /// <summary>
+        /// Save the player chip stack bitmap file.
+        /// </summary>
+        /// <param name="bmp">The bitmap file to be saved</param>
         public void SaveBitmapChips(Bitmap bmp)
         {
-            bmp.Save(strBmpSaveLocation + "\\" + DateTime.Now.ToString("yyyy.MM.dd_") + intIdentifier.ToString("D2") + " Player Chips" + 
+            bmp.Save(bmpSaveLocation + "\\" + DateTime.Now.ToString("yyyy.MM.dd_") + id.ToString("D2") + " Player Chips" + 
                 ".bmp", System.Drawing.Imaging.ImageFormat.Bmp);
         }
 
-        private void SaveBitmapHc(Bitmap bmp, string strHc)
+        /// <summary>
+        /// Save the hold card bitmap file.
+        /// </summary>
+        /// <param name="bmp">The bitmap file to be saved</param>
+        /// <param name="hcDescription_">The description of the hold card (either Hc#1 or Hc#2)</param>
+        private void SaveBitmapHc(Bitmap bmp, string hcDescription_)
         {
-            bmp.Save(strBmpSaveLocation + "\\" + DateTime.Now.ToString("yyyy.MM.dd_") + intIdentifier.ToString("D2") + "_" + strHc + 
+            bmp.Save(bmpSaveLocation + "\\" + DateTime.Now.ToString("yyyy.MM.dd_") + id.ToString("D2") + "_" + hcDescription_ + 
                 ".bmp", System.Drawing.Imaging.ImageFormat.Bmp);
         }
+        
+        #region Rectangle request methods
 
-        public Rectangle BitmapRect(int intId, int intIndex)
+        /// <summary>
+        /// Get the rectangle associated with the given data identifier and index.
+        /// </summary>
+        /// <param name="id_">The data identifier (player [0 -9], board card [10 - 14], pot [15] or action player and dealer [16])</param>
+        /// <param name="index_">The index of the specific data</param>
+        /// <returns>The rectangle associated with the given data identifier and index</returns>
+        public Rectangle BitmapRect(int id_, int index_)
         {
-            Rectangle rctToCopy;
-            if (intId > -1 && intId < 17 && intIndex > -1 && intIndex < 4)
+            // The rectangle that is being requested (initialized with the value to be returned if the combination of id_ and index_ are invalid)
+            Rectangle requestedRect = new Rectangle(0, 0, 0, 0);
+
+            // Verify the id_ and index_ are valid
+            if (id_ > -1 && id_ < 17 && index_ > -1 && index_ < 4)
             {
-                if (intIndex == 0 || intId < 10)
+                // Secondary verification that the id_ and index_ are valid
+                if (index_ == 0 || id_ < 10)
                 {
-                    rctToCopy = new Rectangle(intLocations[intId][intIndex, 0], intLocations[intId][intIndex, 1], intLocations[intId][intIndex, 2], intLocations[intId][intIndex, 3]);
+                    requestedRect = new Rectangle(
+                        DataLocations.Locations[id_][index_, 0],
+                        DataLocations.Locations[id_][index_, 1],
+                        DataLocations.Locations[id_][index_, 2],
+                        DataLocations.Locations[id_][index_, 3]);
                 }
-                else
-                {
-                    rctToCopy = new Rectangle(0, 0, 0, 0);
-                }
-            }
-            else
-            {
-                rctToCopy = new Rectangle(0, 0, 0, 0);
             }
 
-            return rctToCopy;
+            return requestedRect;
         }
 
-        public Rectangle Hc1FaceDownCheckRect(int intId)
+        /// <summary>
+        /// Get the rectangle used to determine if a player's first hold card is face down.
+        /// </summary>
+        /// <param name="id_">The id of the player whose first hold card face down rectangle is being requested</param>
+        /// <returns>The rectangle used to determine if the player's first hold card is face down</returns>
+        public Rectangle Hc1FaceDownCheckRect(int id_)
         {
-            Rectangle rctToCopy;
+            // The rectangle that is being requested (initialized with the value to be returned if the id_ is invalid)
+            Rectangle requestedRect = new Rectangle(0, 0, 0, 0);
 
-            if (intId > -1 && intId < 10)
+            // Verify the id_ is valid
+            if (id_ > -1 && id_ < 10)
             {
-                rctToCopy = new Rectangle(intLocations[intId][0, 0] + pntFirstHoldCardPresent_1.X, intLocations[intId][0, 1] + pntFirstHoldCardPresent_1.Y,
-                    pntFirstHoldCardPresent_2.X - pntFirstHoldCardPresent_1.X, pntFirstHoldCardPresent_2.Y - pntFirstHoldCardPresent_1.Y);
-            }
-            else
-            {
-                rctToCopy = new Rectangle(0, 0, 0, 0);
+                requestedRect = new Rectangle(
+                    DataLocations.Locations[id_][0, 0] + firstHcStatusPixel[0].X, 
+                    DataLocations.Locations[id_][0, 1] + firstHcStatusPixel[0].Y,
+                    firstHcStatusPixel[1].X - firstHcStatusPixel[0].X, 
+                    firstHcStatusPixel[1].Y - firstHcStatusPixel[0].Y);
             }
 
-            return rctToCopy;
+            return requestedRect;
         }
 
-        public Rectangle Hc1FaceUpCheckRect_1(int intId)
+        /// <summary>
+        /// Get the first rectangle used to determine if a player's first hold card is face up.
+        /// </summary>
+        /// <param name="id_">The id of the player whose first hold card face up rectangle is being requested</param>
+        /// <returns>The first rectangle used to determine if the player's first hold card is face up</returns>
+        public Rectangle Hc1FaceUpCheckRect_1(int id_)
         {
-            Rectangle rctToCopy;
+            // The rectangle that is being requested (initialized with the value to be returned if the id_ is invalid)
+            Rectangle requestedRect = new Rectangle(0, 0, 0, 0);
 
-            if (intId > -1 && intId < 10)
+            // Verify the id_ is valid
+            if (id_ > -1 && id_ < 10)
             {
-                rctToCopy = new Rectangle(intLocations[intId][0, 0] + pntFirstHoldCardPresent_3.X, intLocations[intId][0, 1] + pntFirstHoldCardPresent_3.Y, 0, 0);
-            }
-            else
-            {
-                rctToCopy = new Rectangle(0, 0, 0, 0);
+                requestedRect = new Rectangle(
+                    DataLocations.Locations[id_][0, 0] + firstHcStatusPixel[2].X, 
+                    DataLocations.Locations[id_][0, 1] + firstHcStatusPixel[2].Y, 
+                    0, 0);
             }
 
-            return rctToCopy;
+            return requestedRect;
         }
 
+        /// <summary>
+        /// Get the second rectangle used to determine if a player's first hold card is face up.
+        /// </summary>
+        /// <param name="intId">The id of the player whose first hold card face up rectangle is being requested</param>
+        /// <returns>The second rectangle used to determine if the player's first hold card is face up</returns>
         public Rectangle Hc1FaceUpCheckRect_2(int intId)
         {
-            Rectangle rctToCopy;
+            // The rectangle that is being requested (initialized with the value to be returned if the id_ is invalid)
+            Rectangle requestedRect = new Rectangle(0, 0, 0, 0);
 
+            // Verify the id_ is valid
             if (intId > -1 && intId < 10)
             {
-                rctToCopy = new Rectangle(intLocations[intId][0, 0] + pntFirstHoldCardPresent_4.X, intLocations[intId][0, 1] + pntFirstHoldCardPresent_4.Y, 0, 0);
-            }
-            else
-            {
-                rctToCopy = new Rectangle(0, 0, 0, 0);
+                requestedRect = new Rectangle(
+                    DataLocations.Locations[intId][0, 0] + firstHcStatusPixel[3].X, 
+                    DataLocations.Locations[intId][0, 1] + firstHcStatusPixel[3].Y, 
+                    0, 0);
             }
 
-            return rctToCopy;
+            return requestedRect;
         }
 
-        public Rectangle Hc2FaceDownCheckRect(int intId)
+        /// <summary>
+        /// Get the rectangle used to determine if a player's second hold card is face down.
+        /// </summary>
+        /// <param name="id_">The id of the player whose second hold card face down rectangle is being requested</param>
+        /// <returns>The rectangle used to determine if the player's second hold card is face down</returns>
+        public Rectangle Hc2FaceDownCheckRect(int id_)
         {
-            Rectangle rctToCopy;
+            // The rectangle that is being requested (initialized with the value to be returned if the id_ is invalid)
+            Rectangle requestedRect = new Rectangle(0, 0, 0, 0);
 
-            if (intId > -1 && intId < 10)
+            // Verify the id_ is valid
+            if (id_ > -1 && id_ < 10)
             {
-                rctToCopy = new Rectangle(intLocations[intId][0, 0] + pntSecondHoldCardPresent_1.X, intLocations[intId][0, 1] + pntSecondHoldCardPresent_1.Y,
-                    pntSecondHoldCardPresent_2.X - pntSecondHoldCardPresent_1.X, pntSecondHoldCardPresent_2.Y - pntSecondHoldCardPresent_1.Y);
-            }
-            else
-            {
-                rctToCopy = new Rectangle(0, 0, 0, 0);
+                requestedRect = new Rectangle(
+                    DataLocations.Locations[id_][0, 0] + secondHcStatusPixel[0].X, 
+                    DataLocations.Locations[id_][0, 1] + secondHcStatusPixel[0].Y,
+                    secondHcStatusPixel[1].X - secondHcStatusPixel[0].X, 
+                    secondHcStatusPixel[1].Y - secondHcStatusPixel[0].Y);
             }
 
-            return rctToCopy;
+            return requestedRect;
         }
 
-        public Rectangle Hc2FaceUpCheckRect_1(int intId)
+        /// <summary>
+        /// Get the first rectangle used to determine if a player's second hold card is face up.
+        /// </summary>
+        /// <param name="id_">The id of the player whose second hold card face up rectangle is being requested</param>
+        /// <returns>The first rectangle used to determine if the player's second hold card is face up</returns>
+        public Rectangle Hc2FaceUpCheckRect_1(int id_)
         {
-            Rectangle rctToCopy;
+            // The rectangle that is being requested (initialized with the value to be returned if the id_ is invalid)
+            Rectangle requestedRect = new Rectangle(0, 0, 0, 0);
 
-            if (intId > -1 && intId < 10)
+            // Verify the id_ is valid
+            if (id_ > -1 && id_ < 10)
             {
-                rctToCopy = new Rectangle(intLocations[intId][0, 0] + pntSecondHoldCardPresent_3.X, intLocations[intId][0, 1] + pntSecondHoldCardPresent_3.Y, 0, 0);
-            }
-            else
-            {
-                rctToCopy = new Rectangle(0, 0, 0, 0);
+                requestedRect = new Rectangle(
+                    DataLocations.Locations[id_][0, 0] + secondHcStatusPixel[2].X, 
+                    DataLocations.Locations[id_][0, 1] + secondHcStatusPixel[2].Y, 
+                    0, 0);
             }
 
-            return rctToCopy;
+            return requestedRect;
         }
 
-        public Rectangle Hc2FaceUpCheckRect_2(int intId)
+        /// <summary>
+        /// Get the second rectangle used to determine if a player's second hold card is face up.
+        /// </summary>
+        /// <param name="id_">The id of the player whose second hold card face up rectangle is being requested</param>
+        /// <returns>The second rectangle used to determine if the player's second hold card is face up</returns>
+        public Rectangle Hc2FaceUpCheckRect_2(int id_)
         {
-            Rectangle rctToCopy;
+            // The rectangle that is being requested (initialized with the value to be returned if the id_ is invalid)
+            Rectangle requestedRect = new Rectangle(0, 0, 0, 0);
 
-            if (intId > -1 && intId < 10)
+            // Verify the id_ is valid
+            if (id_ > -1 && id_ < 10)
             {
-                rctToCopy = new Rectangle(intLocations[intId][0, 0] + pntSecondHoldCardPresent_4.X, intLocations[intId][0, 1] + pntSecondHoldCardPresent_4.Y, 0, 0);
-            }
-            else
-            {
-                rctToCopy = new Rectangle(0, 0, 0, 0);
+                requestedRect = new Rectangle(
+                    DataLocations.Locations[id_][0, 0] + secondHcStatusPixel[3].X, 
+                    DataLocations.Locations[id_][0, 1] + secondHcStatusPixel[3].Y, 
+                    0, 0);
             }
 
-            return rctToCopy;
+            return requestedRect;
         }
 
-        public Rectangle AvitarPresentCheckRect(int intId)
+        /// <summary>
+        /// Get the rectangle used to determine if a player has an avatar present in their information display box.
+        /// </summary>
+        /// <param name="id_">The id of the player whose information box is to be checked for the presence of an avatar</param>
+        /// <returns>The rectangle used to determine if the player has an avatar present in their information display box</returns>
+        public Rectangle AvatarPresentCheckRect(int id_)
         {
-            Rectangle rctToCopy;
-
-            if (intId > -1 && intId < 10)
+            // The rectangle that is being requested (initialized with the value to be returned if the id_ is invalid)
+            Rectangle requestedRect = new Rectangle(0, 0, 0, 0);
+            
+            // Verify the id_ is valid
+            if (id_ > -1 && id_ < 10)
             {
-                rctToCopy = new Rectangle(intLocations[intId][0, 0] + pntAvitarPresentCheckPixel_1.X, intLocations[intId][0, 1] + pntAvitarPresentCheckPixel_1.Y,
-                    pntAvitarPresentCheckPixel_2.X - pntAvitarPresentCheckPixel_1.X, pntAvitarPresentCheckPixel_2.Y - pntAvitarPresentCheckPixel_1.Y);
-            }
-            else
-            {
-                rctToCopy = new Rectangle(0, 0, 0, 0);
+                requestedRect = new Rectangle(
+                    DataLocations.Locations[id_][0, 0] + avatarPresentCheckPixel[0].X, 
+                    DataLocations.Locations[id_][0, 1] + avatarPresentCheckPixel[0].Y,
+                    avatarPresentCheckPixel[1].X - avatarPresentCheckPixel[0].X, 
+                    avatarPresentCheckPixel[1].Y - avatarPresentCheckPixel[0].Y);
             }
 
-            return rctToCopy;
+            return requestedRect;
         }
 
-        public Rectangle OpenSeatCheckRect(int intId)
+
+        /// <summary>
+        /// Get the rectangle used to determine if a seat is open (no player in that seat).
+        /// </summary>
+        /// <param name="id_">The id of the seat to check for the presence of a player</param>
+        /// <returns>The rectangle used to determine if the seat is open</returns>
+        public Rectangle OpenSeatCheckRect(int id_)
         {
-            Rectangle rctToCopy;
+            // The rectangle that is being requested (initialized with the value to be returned if the id_ is invalid)
+            Rectangle requestedRect = new Rectangle(0, 0, 0, 0);
 
-            if (intId > -1 && intId < 10)
+            // Verify the id_ is valid
+            if (id_ > -1 && id_ < 10)
             {
-                rctToCopy = new Rectangle(intLocations[intId][0, 0] + pntOpenSeatCheckPixel_1.X, intLocations[intId][0, 1] + pntOpenSeatCheckPixel_1.Y,
-                    pntOpenSeatCheckPixel_2.X - pntOpenSeatCheckPixel_1.X, pntOpenSeatCheckPixel_2.Y - pntOpenSeatCheckPixel_1.Y);
-            }
-            else
-            {
-                rctToCopy = new Rectangle(0, 0, 0, 0);
+                requestedRect = new Rectangle(
+                    DataLocations.Locations[id_][0, 0] + openSeatCheckPixel[0].X, 
+                    DataLocations.Locations[id_][0, 1] + openSeatCheckPixel[0].Y,
+                    openSeatCheckPixel[1].X - openSeatCheckPixel[0].X, 
+                    openSeatCheckPixel[1].Y - openSeatCheckPixel[0].Y);
             }
 
-            return rctToCopy;
+            return requestedRect;
         }
 
-        public Rectangle BannerPresentCheckRect(int intId)
+        /// <summary>
+        /// Get the rectangle used to determine if a banner is present (blocking the player data) inside the player information box.
+        /// </summary>
+        /// <param name="id_">The id of the player to check for the presence of a banner</param>
+        /// <returns>The rectangle used to determine if a banner is present</returns>
+        public Rectangle BannerPresentCheckRect(int id_)
         {
-            Rectangle rctToCopy;
+            // The rectangle that is being requested (initialized with the value to be returned if the id_ is invalid)
+            Rectangle requestedRect = new Rectangle(0, 0, 0, 0);
 
-            if (intId > -1 && intId < 10)
+            // Verify the id_ is valid
+            if (id_ > -1 && id_ < 10)
             {
-                rctToCopy = new Rectangle(intLocations[intId][0, 0] + pntBannerPresentCheck.X, intLocations[intId][0, 1] + pntBannerPresentCheck.Y, 0, 0);
-            }
-            else
-            {
-                rctToCopy = new Rectangle(0, 0, 0, 0);
+                requestedRect = new Rectangle(
+                    DataLocations.Locations[id_][0, 0] + bannerPresentPixel.X, 
+                    DataLocations.Locations[id_][0, 1] + bannerPresentPixel.Y, 
+                    0, 0);
             }
 
-            return rctToCopy;
+            return requestedRect;
         }
 
-        public Rectangle BoardCardSuitCheckRect(int intId)
+        /// <summary>
+        /// Get the rectangle used to determine the suit of a board card.
+        /// </summary>
+        /// <param name="id_">The id of the board card to find the suit of</param>
+        /// <returns>The rectangle used to determine if a banner is present</returns>
+        public Rectangle BoardCardSuitCheckRect(int id_)
         {
-            Rectangle rctToCopy;
+            // The rectangle that is being requested (initialized with the value to be returned if the id_ is invalid)
+            Rectangle requestedRect = new Rectangle(0, 0, 0, 0);
 
-            if (intId > 9 && intId < 15)
+            // Verify the id_ is valid
+            if (id_ > 9 && id_ < 15)
             {
-                rctToCopy = new Rectangle(intLocations[intId][0, 0] + pntBoardCardSuitCheck_1.X, intLocations[intId][0, 1] + pntBoardCardSuitCheck_1.Y, 
-                    pntBoardCardSuitCheck_3.X - pntBoardCardSuitCheck_1.X, pntBoardCardSuitCheck_3.Y - pntBoardCardSuitCheck_1.Y);
-            }
-            else
-            {
-                rctToCopy = new Rectangle(0, 0, 0, 0);
+                requestedRect = new Rectangle(
+                    DataLocations.Locations[id_][0, 0] + boardCardSuitCheckPixel[0].X, 
+                    DataLocations.Locations[id_][0, 1] + boardCardSuitCheckPixel[0].Y,
+                    boardCardSuitCheckPixel[2].X - boardCardSuitCheckPixel[0].X, 
+                    boardCardSuitCheckPixel[2].Y - boardCardSuitCheckPixel[0].Y);
             }
 
-            return rctToCopy;
+            return requestedRect;
         }
 
-        public Rectangle Hc1SuitCheckRect(int intId)
+        /// <summary>
+        /// Get the rectangle used to determine the suit of a player's first hold card.
+        /// </summary>
+        /// <param name="id_">The id of the player whose first hold card suit is to be determined</param>
+        /// <returns>The rectangle used to determine the suit of a player's first hold card</returns>
+        public Rectangle Hc1SuitCheckRect(int id_)
         {
-            Rectangle rctToCopy;
+            // The rectangle that is being requested (initialized with the value to be returned if the id_ is invalid)
+            Rectangle requestedRect = new Rectangle(0, 0, 0, 0);
 
-            if (intId > -1 && intId < 10)
+            // Verify the id_ is valid
+            if (id_ > -1 && id_ < 10)
             {
-                rctToCopy = new Rectangle(intLocations[intId][1, 0] + pntHc1SuitCheck_1.X -intHc1Dx, intLocations[intId][1, 1] + pntHc1SuitCheck_1.Y - intHcDy,
-                    pntHc1SuitCheck_3.X - pntHc1SuitCheck_1.X, pntHc1SuitCheck_3.Y - pntHc1SuitCheck_1.Y);
-            }
-            else
-            {
-                rctToCopy = new Rectangle(0, 0, 0, 0);
+                requestedRect = new Rectangle(
+                    DataLocations.Locations[id_][1, 0] + hc1SuitCheckPixel[0].X -DataLocations.Hc1Dx, 
+                    DataLocations.Locations[id_][1, 1] + hc1SuitCheckPixel[0].Y - DataLocations.HcDy,
+                    hc1SuitCheckPixel[2].X - hc1SuitCheckPixel[0].X, 
+                    hc1SuitCheckPixel[2].Y - hc1SuitCheckPixel[0].Y);
             }
 
-            return rctToCopy;
+            return requestedRect;
         }
 
-        public Rectangle Hc2SuitCheckRect(int intId)
+        /// <summary>
+        /// Get the rectangle used to determine the suit of a player's second hold card.
+        /// </summary>
+        /// <param name="id_">The id of the player whose second hold card suit is to be determined</param>
+        /// <returns>The rectangle used to determine the suit of a player's second hold card</returns>
+        public Rectangle Hc2SuitCheckRect(int id_)
         {
-            Rectangle rctToCopy;
+            // The rectangle that is being requested (initialized with the value to be returned if the id_ is invalid)
+            Rectangle requestedRect = new Rectangle(0, 0, 0, 0);
 
-            if (intId > -1 && intId < 10)
+            // Verify the id_ is valid
+            if (id_ > -1 && id_ < 10)
             {
-                rctToCopy = new Rectangle(intLocations[intId][2, 0] + pntHc2SuitCheck_1.X - intHc2Dx, intLocations[intId][2, 1] + pntHc2SuitCheck_1.Y - intHcDy,
-                    pntHc2SuitCheck_3.X - pntHc2SuitCheck_1.X, pntHc2SuitCheck_3.Y - pntHc2SuitCheck_1.Y);
-            }
-            else
-            {
-                rctToCopy = new Rectangle(0, 0, 0, 0);
+                requestedRect = new Rectangle(
+                    DataLocations.Locations[id_][2, 0] + hc2SuitCheckPixel[0].X - DataLocations.Hc2Dx, 
+                    DataLocations.Locations[id_][2, 1] + hc2SuitCheckPixel[0].Y - DataLocations.HcDy,
+                    hc2SuitCheckPixel[2].X - hc2SuitCheckPixel[0].X, 
+                    hc2SuitCheckPixel[2].Y - hc2SuitCheckPixel[0].Y);
             }
 
-            return rctToCopy;
+            return requestedRect;
         }
 
+        #endregion
+
+        /// <summary>
+        /// Draw all the rectangles used to determine which player is the dealer.
+        /// </summary>
         public void DrawDealerRects()
         {
-            int intX, intY;
-            Pen penRed;
-
-            penRed = new Pen(Color.Red, 1);
-
+            // Loop through all the player seats (possible player locations)
             for (int i = 0; i < 10; i++)
             {
-                intX = intLocations[i][3, 2] - intLocations[16][0, 0];
-                intY = intLocations[i][3, 3] - intLocations[16][0, 1];
+                // Prepare the pixel location of the dealer chip for player i
+                int pixelX = DataLocations.Locations[i][3, 2] - DataLocations.Locations[16][0, 0];
+                int pixelY = DataLocations.Locations[i][3, 3] - DataLocations.Locations[16][0, 1];
 
-                gfxScreenShot.DrawRectangle(penRed, intX - 1, intY - 1, 2, 2);
+                Pen penRed = new Pen(Color.Red, 1);
+                screenShotGraphics.DrawRectangle(penRed, pixelX - 1, pixelY - 1, 2, 2);
             }
         }
 
+        /// <summary>
+        /// Draw all the rectangles used to check for the presence of player's hold cards.
+        /// </summary>
+        /// <param name="intDealer"></param>
         public void DrawHoldCardCheckRects(int intDealer)
         {
-            int intX, intY;
-            Pen penYellow, penPurple, penPen;
+            Pen penYellow = new Pen(Color.Yellow, 1);
+            Pen penPurple = new Pen(Color.Purple, 1);
 
-            penYellow = new Pen(Color.Yellow, 1);
-            penPurple = new Pen(Color.Purple, 1);
-
+            // Loop through all the player seats (possible player locations)
             for (int i = 0; i < 9; i++)
             {
-                if (i == intDealer)
-                {
-                    penPen = penYellow;
-                }
-                else
-                {
-                    penPen = penPurple;
-                }
+                // Prepare the pixel location to determine if player i's hold cards are face down
+                int pixelX = BitmapRect(i, 0).Left + DataLocations.HcStatusDx1 - DataLocations.Locations[16][0, 0];
+                int pixelY = BitmapRect(i, 0).Top + DataLocations.HcStatusDy1 - DataLocations.Locations[16][0, 1];
+                screenShotGraphics.DrawRectangle(penYellow, pixelX - 1, pixelY - 1, 3, 2);
 
-                intX = BitmapRect(i, 0).Left + intHcStatusDx1 - intLocations[16][0, 0];
-                intY = BitmapRect(i, 0).Top + intHcStatusDy1 - intLocations[16][0, 1];
-                gfxScreenShot.DrawRectangle(penYellow, intX - 1, intY - 1, 3, 2);
-
-                intX = BitmapRect(i, 0).Left + intHcStatusDx1 - 1 - intLocations[16][0, 0];
-                intY = BitmapRect(i, 0).Top + intHcStatusDy2 - intLocations[16][0, 1];
-                gfxScreenShot.DrawRectangle(penPurple, intX - 1, intY - 1, 3, 2);
+                // Prepare the pixel location to determine the suit of player i's hold cards are face up
+                pixelX = BitmapRect(i, 0).Left + DataLocations.HcStatusDx2 - 1 - DataLocations.Locations[16][0, 0];
+                pixelY = BitmapRect(i, 0).Top + DataLocations.HcStatusDy2 - DataLocations.Locations[16][0, 1];
+                screenShotGraphics.DrawRectangle(penPurple, pixelX - 1, pixelY - 1, 3, 2);
             }
         }
 
+        /// <summary>
+        /// Draw all rectangles used to check for the presence of player's action bars.
+        /// </summary>
         public void DrawActionBarRects()
         {
-            int intX, intY;
-            Pen penBlack;
-
-            penBlack = new Pen(Color.Black, 1);
-
+            // Loop through all the player seats (possible player locations)
             for (int i = 0; i < 10; i++)
             {
-                intX = intLocations[i][3, 0] - intLocations[16][0, 0];
-                intY = intLocations[i][3, 1] - intLocations[16][0, 1];
+                int pixelX = DataLocations.Locations[i][3, 0] - DataLocations.Locations[16][0, 0];
+                int pixelY = DataLocations.Locations[i][3, 1] - DataLocations.Locations[16][0, 1];
 
-                gfxScreenShot.DrawRectangle(penBlack, intX - 1, intY - 1, 2, 2);
+                Pen penBlack = new Pen(Color.Black, 1);
+                screenShotGraphics.DrawRectangle(penBlack, pixelX - 1, pixelY - 1, 2, 2);
             }
-        }
-
-        public string CardIntToString(int intCard)
-        {
-            return cdt.CardIntToString(intCard);
-        }
-
-        public void PlayerCount9()
-        {
-            InitializeIntLocations(true);
-        }
-
-        public void PlayerCount10()
-        {
-            InitializeIntLocations(false);
         }
 
         #endregion
 
         #region Helper Methods
 
-        private bool AvitarPresent()
+        /// <summary>
+        /// Check for the presence of an avatar in this player's information display box
+        /// </summary>
+        /// <returns>True if there is an avatar present in this player's information display box</returns>
+        private bool AvatarPresentCheck()
         {
-            Color clrPixel1, clrPixel2;
+            // Prepare the pixels to be checked to determine if there is an avatar in the player's information display box
+            avatarPresentCheckPixel[0].X = 72;
+            avatarPresentCheckPixel[0].Y = 27 + DataLocations.DyPlayerNameAndChipstack;
+            avatarPresentCheckPixel[1].X = 73;
+            avatarPresentCheckPixel[1].Y = 27 + DataLocations.DyPlayerNameAndChipstack;
 
-            pntAvitarPresentCheckPixel_1.X = 72;
-            pntAvitarPresentCheckPixel_1.Y = 27 + intDyPlayerInfo;
-            pntAvitarPresentCheckPixel_2.X = 73;
-            pntAvitarPresentCheckPixel_2.Y = 27 + intDyPlayerInfo;
+            // Two pixels to check for a grey pixel framing an avatar
+            Color[] pixelColor = { screenShotBitmap.GetPixel(avatarPresentCheckPixel[0].X, avatarPresentCheckPixel[0].Y),
+                screenShotBitmap.GetPixel(avatarPresentCheckPixel[1].X, avatarPresentCheckPixel[1].Y) };
 
-            clrPixel1 = bmpScreenShot.GetPixel(pntAvitarPresentCheckPixel_1.X, pntAvitarPresentCheckPixel_1.Y);
-            clrPixel2 = bmpScreenShot.GetPixel(pntAvitarPresentCheckPixel_2.X, pntAvitarPresentCheckPixel_2.Y);
-
-            if (clrPixel1.R > 75 || clrPixel2.R > 75)
+            // Check for a grey pixel framing an avatar in this location
+            if (pixelColor[0].R > 75 || pixelColor[1].R > 75)
             {
-                blnAvitarPresent = true;
+                isAvatarPresent = true;
             }
             else
             {
-                blnAvitarPresent = false;
+                isAvatarPresent = false;
             }
 
-            return blnAvitarPresent;
+            return isAvatarPresent;
         }
 
-        private void CheckIfSittingOut(Bitmap bmp)
+        /// <summary>
+        /// Determine if the player in this seat is currently sitting out.
+        /// </summary>
+        /// <param name="playerNameBitmap_">The bitmap image containing the player's name</param>
+        private void CheckIfSittingOut(Bitmap playerNameBitmap_)
         {
-            int intXStart, intXEnd, intY;
-            Color clrPixel;
+            isPlayerSittingOut = true;
 
-            intXStart = bmp.Width / 3;
-            intXEnd = intXStart * 2;
-            intY = bmp.Height / 2;
-            blnPlayerSittingOut = true;
-
-            if (!blnBannerPresent)
+            if (!isBannerPresent)
             {
-                for (int i = intXStart; i < intXEnd; i++)
-                {
-                    clrPixel = bmp.GetPixel(i, intY);
+                // Define an area to check for bright white text used to spell out the player's name. 
+                // If bright white text exists the player is active (not sitting out). If not the player is sitting out.
+                int xStart = playerNameBitmap_.Width / 3;
+                int xEnd = xStart * 2;
+                int y = playerNameBitmap_.Height / 2;
 
-                    if (clrPixel.R > 250 && clrPixel.R == clrPixel.G && clrPixel.R == clrPixel.B)
+                // Loop through all the pixels in the x direction from xStart to xEnd checking for bright white pixels.
+                for (int i = xStart; i < xEnd; i++)
+                {
+                    Color pixelColor = playerNameBitmap_.GetPixel(i, y);
+
+                    if (pixelColor.R > 250 && pixelColor.R == pixelColor.G && pixelColor.R == pixelColor.B)
                     {
-                        blnPlayerSittingOut = false;
-                        i = bmp.Width;
+                        isPlayerSittingOut = false;
+                        break;
                     }
                 }
             }
             else
             {
-                blnPlayerSittingOut = false;
+                isPlayerSittingOut = false;
             }
         }
 
-        private bool BannerPresent()
+        /// <summary>
+        /// Check if there is a banner present (blocking the player data) inside the player information box.
+        /// </summary>
+        /// <returns>True if there is a banner present</returns>
+        private bool BannerPresentCheck()
         {
-            Color clrPixel;
+            // Set the x and y poistions of the pixel to be checked to determine if a banner is present
+            bannerPresentPixel.X = screenShotBitmap.Width / 2;
+            bannerPresentPixel.Y = screenShotBitmap.Height - 2;
 
-            pntBannerPresentCheck.X = bmpScreenShot.Width / 2;
-            pntBannerPresentCheck.Y = bmpScreenShot.Height - 2;
+            // The pixel color between where the player's name and the player's chips stack would be displayed
+            Color pixelColor = screenShotBitmap.GetPixel(bannerPresentPixel.X, bannerPresentPixel.Y);
 
-            clrPixel = bmpScreenShot.GetPixel(pntBannerPresentCheck.X, pntBannerPresentCheck.Y);
-
-            if (clrPixel.R > 150 && clrPixel.G > 150 && clrPixel.B > 150)
+            // Check for a grey pixel in this location which is between where the player's name and the player's chips stack would be displayed
+            if (pixelColor.R > 150 && pixelColor.G > 150 && pixelColor.B > 150)
             {
-                blnBannerPresent = true;
+                isBannerPresent = true;
             }
             else
             {
-                blnBannerPresent = false;
+                isBannerPresent = false;
             }
 
-            return blnBannerPresent;
+            return isBannerPresent;
         }
 
-        private int GetCardSuit(Color clrPixel1, Color clrPixel2, Color clrPixel3)
+        /// <summary>
+        /// Determine the suit of a card based on pixel colors.
+        /// </summary>
+        /// <param name="pixel1">The 1st pixel used to dertmine the card suit</param>
+        /// <param name="pixel2">The 2nd pixel used to dertmine the card suit</param>
+        /// <param name="pixel3">The 3rd pixel used to dertmine the card suit</param>
+        /// <returns>The suit of the card</returns>
+        private CardTranslator.CardSuit GetCardSuit(Color pixel1_, Color pixel2_, Color pixel3_)
         {
-            int intSuit;
+            CardTranslator.CardSuit cardSuit;
 
-            // intSuit
-            // -1 = not present, 1 = clubs, 2 = diamonds, 3 = hearts, 4 = spades
-
-            if (clrPixel2.R == clrPixel2.G && clrPixel2.G == clrPixel2.B)
+            // Is pixel2 grey
+            if (pixel2_.R == pixel2_.G && pixel2_.G == pixel2_.B)
             {
-                intSuit = 4;
+                cardSuit = CardTranslator.CardSuit.spades;
             }
-            else if (clrPixel2.R > clrPixel2.G && clrPixel2.R > clrPixel2.B)
+            // Is pixel2 red
+            else if (pixel2_.R > pixel2_.G && pixel2_.R > pixel2_.B)
             {
-                intSuit = 3;
+                cardSuit = CardTranslator.CardSuit.hearts;
             }
-            else if (clrPixel2.B > clrPixel2.R && clrPixel2.B > clrPixel2.G)
+            // Is pixel2 blue
+            else if (pixel2_.B > pixel2_.R && pixel2_.B > pixel2_.G)
             {
-                intSuit = 2;
+                cardSuit = CardTranslator.CardSuit.diamonds;
             }
-            else if (clrPixel2.G > clrPixel2.R && clrPixel2.G > clrPixel2.B)
+            // Is pixel2 green
+            else if (pixel2_.G > pixel2_.R && pixel2_.G > pixel2_.B)
             {
-                if (clrPixel1.R > 20 || clrPixel2.R > 20 || clrPixel3.R > 20)
+                // Is pixel2 a bright green
+                if (pixel1_.R > 20 || pixel2_.R > 20 || pixel3_.R > 20)
                 {
-                    intSuit = 1;
+                    cardSuit = CardTranslator.CardSuit.clubs;
                 }
                 else
                 {
-                    intSuit = -1;
+                    cardSuit = CardTranslator.CardSuit.unknown;
                 }
             }
             else
             {
-                intSuit = -1;
+                cardSuit = CardTranslator.CardSuit.unknown;
             }
             
-            return intSuit;
+            return cardSuit;
         }
 
-        private bool CardRaised(Bitmap bmpCard)
+        /// <summary>
+        /// Determine the value (number or Jack, Queen, King, Ace) of a card.
+        /// </summary>
+        /// <param name="screenShot">The screenshot containing the image of the card</param>
+        /// <returns>The single character string representation of the card value</returns>
+        private string GetCardValue(Bitmap screenShot)
         {
-            bool blnRaised;
-            Color clrPixel;
+            ColorSimplifyCard(screenShot);
 
-            clrPixel = bmpCard.GetPixel(bmpCard.Width / 2, 0);
+            string cardValue = BitmapToText(screenShot);
 
-            if (clrPixel.R > 175 || clrPixel.G > 175 || clrPixel.B > 175)
+            if (!string.IsNullOrWhiteSpace(cardValue))
             {
-                blnRaised = true;
-            }
-            else
-            {
-                blnRaised = false;
+                // Remove trailing newline character if present
+                cardValue = cardValue.Substring(0, cardValue.IndexOf("\n"));
             }
 
-            return blnRaised;
+            // Correct value if misinterpreted by the tesseract class
+            if (cardValue == "E" || cardValue == "B" || cardValue == "b")
+            {
+                cardValue = "6";
+            }
+            else if (cardValue == "l]" || cardValue == "[l")
+            {
+                cardValue = "Q";
+            }
+
+            return cardValue;
         }
 
-        private bool CardRaisedHc(bool blnHc1_)
+        /// <summary>
+        /// Convert a bitmap image to text.
+        /// </summary>
+        /// <param name="bmp">The bitmap image to convert to text</param>
+        /// <returns>The text contained in the bitmap image</returns>
+        private string BitmapToText(Bitmap bmp)
         {
-            bool blnRaised;
-            Color clrPixel;
+            // Convert bitmap image to text
+            var tesseractObject = OcrApi.Create();
+            tesseractObject.Init(Patagames.Ocr.Enums.Languages.English);
+            // The value (number or Jack, Queen, King, Ace) of the board card
+            string bitmapText = tesseractObject.GetTextFromImage(bmp);
+            tesseractObject.Dispose();
+            tesseractObject.Release();
 
-            if (blnHc1_)
-            {
-                clrPixel = bmpScreenShot.GetPixel(intHc1Dx + 5, 0);
-            }
-            else
-            {
-                clrPixel = bmpScreenShot.GetPixel(intHc2Dx + 55, 0);
-            }
-
-            if (clrPixel.R > 175 || clrPixel.G > 175 || clrPixel.B > 175)
-            {
-                blnRaised = true;
-            }
-            else
-            {
-                blnRaised = false;
-            }
-
-            return blnRaised;
+            return bitmapText;
         }
 
+        /// <summary>
+        /// Determine if a board card is raised indicating it is being used to form the winning hand.
+        /// </summary>
+        /// <param name="cardBitmap">The bitmap image of the board card</param>
+        /// <returns>True if the board card is raised</returns>
+        private bool CardRaisedBoardCard(Bitmap cardBitmap)
+        {
+            // Note: In the most recent update of Bet Online they don't highlight the winning combination of cards by raising them like they 
+            // used to. As a result this method is never called but I am leaving it here in case Bet Online reverts back to the old system.
+            // 2020.04.04
+
+            // Get the pixel color at the top center of this bitmap image. If the card is raised this pixel will be the color of a playing card
+            Color pixelColor = cardBitmap.GetPixel(cardBitmap.Width / 2, 0);
+
+            // Is this pixel bright enough to be a playing card
+            if (pixelColor.R > 175 || pixelColor.G > 175 || pixelColor.B > 175)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Determine if a hold card is raised indicating it is being used to form the winning hand.
+        /// </summary>
+        /// <param name="isHc1_">True if the first hold card is the card to be checked</param>
+        /// <returns>True if the hold card is raised</returns>
+        private bool CardRaisedHc(bool isHc1_)
+        {
+            // Note: In the most recent update of Bet Online they don't highlight the winning combination of cards by raising them like they 
+            // used to. As a result this method is never called but I am leaving it here in case Bet Online reverts back to the old system.
+            // 2020.04.04
+
+            // The pixel color at the top of the hold card bitmap image. If the card is raised this pixel will be the color of a playing card
+            Color pixelColor;
+
+            if (isHc1_)
+            {
+                // If the first hold card is the card to be checked
+                pixelColor = screenShotBitmap.GetPixel(DataLocations.Hc1Dx + 5, 0);
+            }
+            else
+            {
+                // If the second hold card is the card to be checked
+                pixelColor = screenShotBitmap.GetPixel(DataLocations.Hc2Dx + 55, 0);
+            }
+
+            // Is this pixel bright enough to be a playing card
+            if (pixelColor.R > 175 || pixelColor.G > 175 || pixelColor.B > 175)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// This method modifies the bitmap image of the pot so that each pixel is either black or white.
+        /// </summary>
         private void ColorSimplifyPot()
         {
-            // int intColorThreashold;
-            Color clrPixel;
+            // The color of a pixel being examined
+            Color pixelColor;
 
-            // intColorThreashold = 220;
-
-            for (int i = 0; i < bmpScreenShot.Width; i++)
+            // Loop through all the pixels in the bitmap image
+            for (int i = 0; i < screenShotBitmap.Width; i++)
             {
-                for (int j = 0; j < bmpScreenShot.Height; j++)
+                for (int j = 0; j < screenShotBitmap.Height; j++)
                 {
-                    clrPixel = bmpScreenShot.GetPixel(i, j);
+                    pixelColor = screenShotBitmap.GetPixel(i, j);
 
-                    //if (clrPixel.R < intColorThreashold)
-                    if (clrPixel.G > clrPixel.R - 1 && clrPixel.G < clrPixel.R + 1)
+                    // The text is white with a small black shadow on a green background so look for pixels where the value of 
+                    // green is equal to the value of red
+                    if (pixelColor.G == pixelColor.R)
                     {
-                        bmpScreenShot.SetPixel(i, j, Color.Black);
+                        screenShotBitmap.SetPixel(i, j, Color.Black);
                     }
                     else
                     {
-                        bmpScreenShot.SetPixel(i, j, Color.White);
+                        screenShotBitmap.SetPixel(i, j, Color.White);
                     }
                 }
             }
         }
 
-        private void ColorSimplifyCard(Bitmap bmpCard)
+        /// <summary>
+        /// This method takes a bitmap image of a card and modifies it so that each pixel is either black or white.
+        /// </summary>
+        /// <param name="cardBitmap">The bitmap image whose pixels are to be converted to either black or white</param>
+        private void ColorSimplifyCard(Bitmap cardBitmap)
         {
-            int intColorThreashold;
-            Color clrPixel;
+            // The color of a pixel being examined
+            Color pixelColor;
 
-            intColorThreashold = 155;
+            // The threashold color value for turning a pixel black or white
+            int colorThreashold = 155;
 
             // Test for card brightness (basically if the card is in the fadded/darkened state) before setting the color threashold
-            for (int i = 0; i < bmpCard.Width; i++)
+            for (int i = 0; i < cardBitmap.Width; i++)
             {
-                clrPixel = bmpCard.GetPixel(i, bmpCard.Height / 2);
+                // The color of a pixel being examined
+                pixelColor = cardBitmap.GetPixel(i, cardBitmap.Height / 2);
 
-                if (clrPixel.R > 252 && clrPixel.G > 252 && clrPixel.B > 252)
+                // Check for a bright white pixel
+                if (pixelColor.R > 252 && pixelColor.G > 252 && pixelColor.B > 252)
                 {
-                    intColorThreashold = 252;
-                    i = bmpCard.Width;
+                    colorThreashold = 252;
+                    i = cardBitmap.Width;
                 }
             }
 
-            for (int i = 0; i < bmpCard.Width; i++)
+            // Loop through all the pixels in the bitmap image
+            for (int i = 0; i < cardBitmap.Width; i++)
             {
-                for (int j = 0; j < bmpCard.Height; j++)
+                for (int j = 0; j < cardBitmap.Height; j++)
                 {
-                    clrPixel = bmpCard.GetPixel(i, j);
+                    pixelColor = cardBitmap.GetPixel(i, j);
 
-                    if (clrPixel.R == clrPixel.G && clrPixel.G == clrPixel.B && clrPixel.R > intColorThreashold)
+                    // if the value of red, green and blue are all equal and greater than the color threashold this is the text to read
+                    // else this is background
+                    if (pixelColor.R == pixelColor.G && pixelColor.G == pixelColor.B && pixelColor.R > colorThreashold)
                     {
-                        bmpCard.SetPixel(i, j, Color.Black);
+                        cardBitmap.SetPixel(i, j, Color.Black);
                     }
                     else
                     {
-                        bmpCard.SetPixel(i, j, Color.White);
+                        cardBitmap.SetPixel(i, j, Color.White);
                     }
                 }
             }
         }
 
-        private void ColorSimplifyPlayerName(Bitmap bmpPlyrName)
+        /// <summary>
+        /// This method takes the bitmap image containing the player's name and modifies it so that each pixel is either black or white.
+        /// </summary>
+        /// <param name="playerNameBitmap_">The bitmap image whose pixels are to be converted to either black or white</param>
+        private void ColorSimplifyPlayerName(Bitmap playerNameBitmap_)
         {
-            int intColorThreashold;
-            Color clrPixel;
-
-            intColorThreashold = 225;
-
-            for (int i = 0; i < bmpPlyrName.Width; i++)
+            // Loop through all the pixels in the bitmap image
+            for (int i = 0; i < playerNameBitmap_.Width; i++)
             {
-                for (int j = 0; j < bmpPlyrName.Height; j++)
+                for (int j = 0; j < playerNameBitmap_.Height; j++)
                 {
-                    clrPixel = bmpPlyrName.GetPixel(i, j);
+                    int colorThreashold1 = 225;
+                    int colorThreashold2 = 220;
 
-                    // if clrPixel.R >= intColorThreashold this as a white character
-                    // else if clrPixel.B > 200 && clrPixel.B > 2*clrPixel.R register this as a blue character "Fold", "Bet", "Call",  
-                    // "Check", "All-In" etc.
-                    if (clrPixel.R >= intColorThreashold || (clrPixel.B > 200 && clrPixel.B > 2 * clrPixel.R))
+                    Color pixelColor = playerNameBitmap_.GetPixel(i, j);
+
+                    // if pixelColor.R >= colorThreashold1 this as a white character
+                    // else if pixelColor.B > colorThreashold2 && pixelColor.B > 2 * pixelColor.R this as a blue character ("Fold", "Bet", "Call",  
+                    // "Check", "All-In" etc.)
+                    if (pixelColor.R >= colorThreashold1 || (pixelColor.B > colorThreashold2 && pixelColor.B > 2 * pixelColor.R))
                     {
-                        bmpPlyrName.SetPixel(i, j, Color.Black);
+                        playerNameBitmap_.SetPixel(i, j, Color.Black);
                     }
                     else
                     {
-                        bmpPlyrName.SetPixel(i, j, Color.White);
+                        playerNameBitmap_.SetPixel(i, j, Color.White);
                     }
                 }
             }
         }
 
-        private void ColorSimplifyChipStack(Bitmap bmpChpStack)
+        /// <summary>
+        /// This method takes the bitmap image containing the player's chip stack and modifies it so that each pixel is either black or white.
+        /// </summary>
+        /// <param name="chipStackBitmap_">The bitmap image whose pixels are to be converted to either black or white</param>
+        private void ColorSimplifyChipStack(Bitmap chipStackBitmap_)
         {
-            int intColorThreashold;
-            Color clrPixel;
-
-            intColorThreashold = 150;
-
-            for (int i = 0; i < bmpChpStack.Width; i++)
+            // Loop through all the pixels in the bitmap image
+            for (int i = 0; i < chipStackBitmap_.Width; i++)
             {
-                for (int j = 0; j < bmpChpStack.Height; j++)
+                for (int j = 0; j < chipStackBitmap_.Height; j++)
                 {
-                    clrPixel = bmpChpStack.GetPixel(i, j);
+                    int colorThreashold = 150;
 
-                    if (clrPixel.G > (clrPixel.R + 2) && clrPixel.G > (clrPixel.B + 2) && clrPixel.G > intColorThreashold)
+                    Color pixelColor = chipStackBitmap_.GetPixel(i, j);
+
+                    // Chip stacks are displayed in green text so look for green text
+                    if (pixelColor.G > (pixelColor.R + 2) && pixelColor.G > (pixelColor.B + 2) && pixelColor.G > colorThreashold)
                     {
-                        bmpChpStack.SetPixel(i, j, Color.Black);
+                        chipStackBitmap_.SetPixel(i, j, Color.Black);
                     }
                     else
                     {
-                        bmpChpStack.SetPixel(i, j, Color.White);
+                        chipStackBitmap_.SetPixel(i, j, Color.White);
                     }
                 }
             }
         }
-
-        private int CardSuitAndStringToInt(int intSuit, string strCard)
-        {
-            // -1 = not present, 1 = clubs, 2 = diamonds, 3 = hearts, 4 = spades
-            return cdt.CardSuitAndStringToInt(intSuit, strCard);
-        }
-
-        #endregion
-
-        #region Initializations/Setup
-
-        private void InitializeArrays()
-        {
-            // Default is a 9-player table (the true parameter of this methods means 9-player table)
-            InitializeIntLocations(true);
-        }
-
-        #endregion
-
-        #region Locations Arrays
-        // These arrays define where to look for the data (chip stacks, hold cards, action player, dealer, board cards etc.)
-
-        private void InitializeIntLocations(bool bln9Players)
-        {
-            int intPlayerDx, intPlayerDy, intActionBarDx, intActionBarDy, intBoardDx, intPotDx, intPotDy;
-
-            intPlayerDx = 258;
-            intPlayerDy = 171;
-            intActionBarDx = -4;
-            intActionBarDy = 192;
-            intBoardDx = 117;
-            intPotDx = 123;
-            intPotDy = 19;
-
-            #region Locations array defining dimensions
-
-            intLocations = new int[17][,];
-
-            if (bln9Players)
-            {
-                // This method sets the values for the intloactions array for a 9 player table
-                PlayerLocations9Players();
-            }
-            else
-            {
-                // This method sets the values for the intloactions array for a 10 player table
-                PlayerLocations10Players();
-            }
-
-            // Boar Card 1 (Flop 1): x1, y1, x2, y2
-            intLocations[10] = new int[1, 4]
-            {
-                {673, 348, 0, 0}
-            };
-
-            // Boar Card 2 (Flop 2): x1, y1, x2, y2
-            intLocations[11] = new int[1, 4]
-            {
-                {0, 348, 0, 0}
-            };
-
-            // Boar Card 3 (Flop 3): x1, y1, x2, y2
-            intLocations[12] = new int[1, 4]
-            {
-                {0, 348, 0, 0}
-            };
-
-            // Boar Card 4 (Turn): x1, y1, x2, y2
-            intLocations[13] = new int[1, 4]
-            {
-                {0, 348, 0, 0}
-            };
-
-            // Boar Card 5 (River): x1, y1, x2, y2
-            intLocations[14] = new int[1, 4]
-            {
-                {0, 348, 0, 0}
-            };
-
-            // Pot: x1, y1, x2, y2
-            intLocations[15] = new int[1, 4]
-            {
-                {899, 269, 0, 0}
-            };
-
-            // Area of interest (everything needed to collect game data): x1, y1, width, height
-            intLocations[16] = new int[1, 4]
-            {
-                {251, 41, 1215, 763}
-            };
-
-            #endregion
-
-            #region Add in constant offsets
-
-            // For player locations
-            for (int i = 0; i < 10; i++)
-            {
-                intLocations[i][0, 2] = intPlayerDx;
-                intLocations[i][0, 3] = intPlayerDy;
-                intLocations[i][1, 0] = intLocations[i][0, 0] + intHc1Dx;
-                intLocations[i][1, 1] = intLocations[i][0, 1] + intHcDy;
-                intLocations[i][1, 2] = intCardDx;
-                intLocations[i][1, 3] = intCardDy;
-                intLocations[i][2, 0] = intLocations[i][0, 0] + intHc2Dx;
-                intLocations[i][2, 1] = intLocations[i][0, 1] + intHcDy;
-                intLocations[i][2, 2] = intCardDx;
-                intLocations[i][2, 3] = intCardDy;
-                intLocations[i][3, 0] = intLocations[i][0, 0] + intActionBarDx;
-                intLocations[i][3, 1] = intLocations[i][0, 1] + intActionBarDy;
-            }
-
-            // For board card locations
-            for (int i = 10; i < 15; i++)
-            {
-                if (i > 10)
-                {
-                    intLocations[i][0, 0] = intLocations[i - 1][0, 0] + intBoardDx;
-                }
-
-                intLocations[i][0, 2] = intCardDx;
-                intLocations[i][0, 3] = intCardDy;
-            }
-
-            // For Pot Annoucement Location
-            intLocations[15][0, 2] = intPotDx;
-            intLocations[15][0, 3] = intPotDy;
-
-            #endregion
-
-        }
-
-        private void PlayerLocations9Players()
-        {
-            // intLocations[-][0, -] = Player info (name and chipstack) (x, y, width, height)
-            // intLocations[-][1, -] = Hold Card 1 info (x1, y1, width, height)
-            // intLocations[-][2, -] = Hold Card 2 info (x2, y2, width, height)
-            // intLocations[-][3, -] = action bar and dealer chip check locations (x_Action, y_Action, x_DealerChip, y_DealerChip)
-
-            // Player 1: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
-            // and x1, y1 for action bar and dealer chip
-            intLocations[0] = new int[4, 4]
-            {
-                {288, 161, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 580, 298}
-            };
-
-            // Player 2: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
-            // and x1, y1 for action bar and dealer chip
-            intLocations[1] = new int[4, 4]
-            {
-                {621, 31, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 669, 248}
-            };
-
-            // Player 3: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
-            // and x1, y1 for action bar and dealer chip
-            intLocations[2] = new int[4, 4]
-            {
-                {1037, 31, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 1251, 248}
-            };
-
-            // Player 4: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
-            // and x1, y1 for action bar and dealer chip
-            intLocations[3] = new int[4, 4]
-            {
-                {1370, 161, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 1339, 298}
-            };
-
-            // Player 5: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
-            // and x1, y1 for action bar and dealer chip
-            intLocations[4] = new int[4, 4]
-            {
-                {1403, 369, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 1411, 450}
-            };
-
-            // Player 6: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
-            // and x1, y1 for action bar and dealer chip
-            intLocations[5] = new int[4, 4]
-            {
-                {1163, 569, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 1133, 676}
-            };
-
-            // Player 7: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
-            // and x1, y1 for action bar and dealer chip
-            intLocations[6] = new int[4, 4]
-            {
-                {829, 611, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 837, 685}
-            };
-
-            // Player 8: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
-            // and x1, y1 for action bar and dealer chip
-            intLocations[7] = new int[4, 4]
-            {
-                {495, 569, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 751, 646}
-            };
-
-            // Player 9: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
-            // and x1, y1 for action bar and dealer chip
-            intLocations[8] = new int[4, 4]
-            {
-                {255, 369, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 509, 450}
-            };
-
-            // Player 10: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
-            // and x1, y1 for action bar and dealer chip
-            // This player doesn't exist in this configuration
-            intLocations[9] = new int[4, 4]
-            {
-                {289, 162, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 581, 299}
-            };
-        }
-
-        private void PlayerLocations10Players()
-        {
-            // intLocations[-][0, -] = Player info (name and chipstack) (x, y, width, height)
-            // intLocations[-][1, -] = Hold Card 1 info (x1, y1, width, height)
-            // intLocations[-][2, -] = Hold Card 2 info (x2, y2, width, height)
-            // intLocations[-][3, -] = action bar and dealer chip check locations (x_Action, y_Action, x_DealerChip, y_DealerChip)
-
-            // Player 1: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
-            // and x1, y1 for action bar and dealer chip
-            intLocations[0] = new int[4, 4]
-            {
-                {286, 255, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 563, 413}
-            };
-
-            // Player 2: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
-            // and x1, y1 for action bar and dealer chip
-            intLocations[1] = new int[4, 4]
-            {
-                {525, 104, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 802, 245}
-            };
-
-            // Player 3: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
-            // and x1, y1 for action bar and dealer chip
-            intLocations[2] = new int[4, 4]
-            {
-                {837, 63, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 1081, 262}
-            };
-
-            // Player 4: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
-            // and x1, y1 for action bar and dealer chip
-            intLocations[3] = new int[4, 4]
-            {
-                {1149, 104, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 1303, 298}
-            };
-
-            // Player 5: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
-            // and x1, y1 for action bar and dealer chip
-            intLocations[4] = new int[4, 4]
-            {
-                {1387, 255, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 1356, 414}
-            };
-
-            // Player 6: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
-            // and x1, y1 for action bar and dealer chip
-            intLocations[5] = new int[4, 4]
-            {
-                {1387, 447, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 1358, 552}
-            };
-
-            // Player 7: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
-            // and x1, y1 for action bar and dealer chip
-            intLocations[6] = new int[4, 4]
-            {
-                {1149, 589, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 1118, 670}
-            };
-
-            // Player 8: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
-            // and x1, y1 for action bar and dealer chip
-            intLocations[7] = new int[4, 4]
-            {
-                {837, 625, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 839, 672}
-            };
-
-            // Player 9: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
-            // and x1, y1 for action bar and dealer chip
-            intLocations[8] = new int[4, 4]
-            {
-                {555, 589, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 766, 656}
-            };
-
-            // Player 10: x1, y1, x2, y2 for name and chips stack, hold card 1, hold card 2
-            // and x1, y1 for action bar and dealer chip
-            intLocations[9] = new int[4, 4]
-            {
-                {555, 447, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 0, 0},
-                {0, 0, 560, 552}
-            };
-        }
-
-        #endregion
-
-        #region Properties
 
         #endregion
     }

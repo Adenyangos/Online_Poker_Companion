@@ -58,7 +58,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Board.cs" />
+    <Compile Include="BettingRound.cs" />
+    <Compile Include="BoardCard.cs" />
     <Compile Include="BoardAction.cs">
       <DependentUpon>Bol_Model.tt</DependentUpon>
     </Compile>
@@ -77,20 +78,29 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Bol_Model.edmx</DependentUpon>
     </Compile>
-    <Compile Include="CardStringIntTranslator.cs" />
+    <Compile Include="CardTranslator.cs" />
     <Compile Include="DataAnalyzer.cs" />
+    <Compile Include="DataAnalyzerDataStructures\DataCounter.cs" />
+    <Compile Include="DataAnalyzerDataStructures\HandCircumstances.cs" />
+    <Compile Include="DataAnalyzerDataStructures\PokerActions.cs" />
+    <Compile Include="DataLocations.cs" />
     <Compile Include="DbController.cs" />
-    <Compile Include="frmDataDisplay.cs">
+    <Compile Include="DbDataStructures\DbBoardActionInfo.cs" />
+    <Compile Include="DbDataStructures\DbHandInfo.cs" />
+    <Compile Include="DbDataStructures\DbHandPlayerInfo.cs" />
+    <Compile Include="DbDataStructures\DbPlayerActionInfo.cs" />
+    <Compile Include="DbDataStructures\DbPlayerHandInfoAll.cs" />
+    <Compile Include="DataDisplayForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="frmDataDisplay.Designer.cs">
-      <DependentUpon>frmDataDisplay.cs</DependentUpon>
+    <Compile Include="DataDisplayForm.Designer.cs">
+      <DependentUpon>DataDisplayForm.cs</DependentUpon>
     </Compile>
-    <Compile Include="frmMain.cs">
+    <Compile Include="MainForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="frmMain.Designer.cs">
-      <DependentUpon>frmMain.cs</DependentUpon>
+    <Compile Include="MainForm.Designer.cs">
+      <DependentUpon>MainForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Game.cs">
       <DependentUpon>Bol_Model.tt</DependentUpon>
@@ -101,23 +111,27 @@
     <Compile Include="HandPlayer.cs">
       <DependentUpon>Bol_Model.tt</DependentUpon>
     </Compile>
+    <Compile Include="HoldCardState.cs" />
+    <Compile Include="MyChart.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Player.cs">
       <DependentUpon>Bol_Model.tt</DependentUpon>
     </Compile>
     <Compile Include="PlayerAction.cs">
       <DependentUpon>Bol_Model.tt</DependentUpon>
     </Compile>
-    <Compile Include="Players.cs" />
+    <Compile Include="PlayerSeat.cs" />
     <Compile Include="ProcessScreenShots.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SetupFrmDataDisplay.cs" />
-    <Compile Include="SetupFrmMain.cs" />
-    <EmbeddedResource Include="frmDataDisplay.resx">
-      <DependentUpon>frmDataDisplay.cs</DependentUpon>
+    <Compile Include="SetupDataDisplayForm.cs" />
+    <Compile Include="SetupMainForm.cs" />
+    <EmbeddedResource Include="DataDisplayForm.resx">
+      <DependentUpon>DataDisplayForm.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="frmMain.resx">
-      <DependentUpon>frmMain.cs</DependentUpon>
+    <EmbeddedResource Include="MainForm.resx">
+      <DependentUpon>MainForm.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
